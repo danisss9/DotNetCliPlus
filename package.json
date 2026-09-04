@@ -1,0 +1,532 @@
+{
+  "name": "dotnet-cli-plus",
+  "displayName": "DotNet CLI Plus",
+  "description": "dotnet CLI commands, project/solution management, NuGet tools and templates for VS Code — a free companion to the base C# extension",
+  "repository": "https://github.com/danisss9/DotNetCliPlus",
+  "publisher": "danisss9",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.107.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "recommendations": [
+    "ms-dotnettools.csharp",
+    "github.copilot",
+    "anthropic.claude-code"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "dotnet-cli-plus.runProject",
+        "title": ".NET: Run Project",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.debugProject",
+        "title": ".NET: Debug Project",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.watchProject",
+        "title": ".NET: Watch Project",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.buildTarget",
+        "title": ".NET: Build",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.rebuildTarget",
+        "title": ".NET: Rebuild",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.cleanTarget",
+        "title": ".NET: Clean",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.restoreSolution",
+        "title": ".NET: Restore",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.testTarget",
+        "title": ".NET: Test",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.formatProject",
+        "title": ".NET: Format",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.newProject",
+        "title": ".NET: New Project…",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.manageNuGetPackages",
+        "title": "NuGet: Manage Packages",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.updatePackages",
+        "title": ".NET: Update Packages",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.manageSolution",
+        "title": ".NET: Manage Solution",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.checkBuildErrors",
+        "title": ".NET: Check Build Errors",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.runLaunchProfile",
+        "title": ".NET: Run Launch Profile",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.manageUserSecrets",
+        "title": ".NET: User Secrets",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.manageSdks",
+        "title": ".NET: Manage SDKs",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.setupNuGetAuth",
+        "title": ".NET: Setup NuGet Auth",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.manageConfigs",
+        "title": ".NET: Manage Config Files",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.publishProject",
+        "title": ".NET: Publish / Pack",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.switchFile",
+        "title": ".NET: Switch File",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.clearTerminals",
+        "title": "Close Terminals",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.addProjectReference",
+        "title": ".NET: Add Project Reference",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.removeProjectReference",
+        "title": ".NET: Remove Project Reference",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.listProjectReferences",
+        "title": ".NET: List Project References",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.new.console",
+        "title": "Console App"
+      },
+      {
+        "command": "dotnet-cli-plus.new.classlib",
+        "title": "Class Library"
+      },
+      {
+        "command": "dotnet-cli-plus.new.xunit",
+        "title": "xUnit Test Project"
+      },
+      {
+        "command": "dotnet-cli-plus.new.nunit",
+        "title": "NUnit Test Project"
+      },
+      {
+        "command": "dotnet-cli-plus.new.mstest",
+        "title": "MSTest Test Project"
+      },
+      {
+        "command": "dotnet-cli-plus.new.webapi",
+        "title": "Web API"
+      },
+      {
+        "command": "dotnet-cli-plus.new.web",
+        "title": "ASP.NET Core Empty"
+      },
+      {
+        "command": "dotnet-cli-plus.new.webapp",
+        "title": "Razor Pages App"
+      },
+      {
+        "command": "dotnet-cli-plus.new.mvc",
+        "title": "MVC App"
+      },
+      {
+        "command": "dotnet-cli-plus.new.blazor",
+        "title": "Blazor Web App"
+      },
+      {
+        "command": "dotnet-cli-plus.new.worker",
+        "title": "Worker Service"
+      },
+      {
+        "command": "dotnet-cli-plus.new.grpc",
+        "title": "gRPC Service"
+      },
+      {
+        "command": "dotnet-cli-plus.new.gitignore",
+        "title": ".gitignore"
+      },
+      {
+        "command": "dotnet-cli-plus.new.editorconfig",
+        "title": ".editorconfig"
+      },
+      {
+        "command": "dotnet-cli-plus.new.globaljson",
+        "title": "global.json"
+      },
+      {
+        "command": "dotnet-cli-plus.new.nugetconfig",
+        "title": "nuget.config"
+      },
+      {
+        "command": "dotnet-cli-plus.new.sln",
+        "title": "Solution"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "dotnet-cli-plus.runProject",
+        "key": "ctrl+shift+d r"
+      },
+      {
+        "command": "dotnet-cli-plus.debugProject",
+        "key": "ctrl+shift+d d"
+      },
+      {
+        "command": "dotnet-cli-plus.watchProject",
+        "key": "ctrl+shift+d w"
+      },
+      {
+        "command": "dotnet-cli-plus.buildTarget",
+        "key": "ctrl+shift+d b"
+      },
+      {
+        "command": "dotnet-cli-plus.testTarget",
+        "key": "ctrl+shift+d t"
+      },
+      {
+        "command": "dotnet-cli-plus.formatProject",
+        "key": "ctrl+shift+d f"
+      },
+      {
+        "command": "dotnet-cli-plus.restoreSolution",
+        "key": "ctrl+shift+d s"
+      },
+      {
+        "command": "dotnet-cli-plus.newProject",
+        "key": "ctrl+shift+d n"
+      },
+      {
+        "command": "dotnet-cli-plus.manageNuGetPackages",
+        "key": "ctrl+shift+d p"
+      },
+      {
+        "command": "dotnet-cli-plus.updatePackages",
+        "key": "ctrl+shift+d u"
+      },
+      {
+        "command": "dotnet-cli-plus.manageSolution",
+        "key": "ctrl+shift+d m"
+      },
+      {
+        "command": "dotnet-cli-plus.checkBuildErrors",
+        "key": "ctrl+shift+d e"
+      },
+      {
+        "command": "dotnet-cli-plus.runLaunchProfile",
+        "key": "ctrl+shift+d l"
+      },
+      {
+        "command": "dotnet-cli-plus.manageUserSecrets",
+        "key": "ctrl+shift+d g"
+      },
+      {
+        "command": "dotnet-cli-plus.manageSdks",
+        "key": "ctrl+shift+d k"
+      },
+      {
+        "command": "dotnet-cli-plus.setupNuGetAuth",
+        "key": "ctrl+shift+d a"
+      },
+      {
+        "command": "dotnet-cli-plus.manageConfigs",
+        "key": "ctrl+shift+d j"
+      },
+      {
+        "command": "dotnet-cli-plus.publishProject",
+        "key": "ctrl+shift+d o"
+      },
+      {
+        "command": "dotnet-cli-plus.clearTerminals",
+        "key": "ctrl+shift+d c"
+      },
+      {
+        "command": "dotnet-cli-plus.switchFile",
+        "key": "ctrl+shift+d tab"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "dotnet-cli-plus.submenu",
+        "label": ".NET New"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "explorerResourceIsFolder",
+          "submenu": "dotnet-cli-plus.submenu",
+          "group": "navigation"
+        }
+      ],
+      "dotnet-cli-plus.submenu": [
+        {
+          "command": "dotnet-cli-plus.new.console",
+          "group": "1_common@1"
+        },
+        {
+          "command": "dotnet-cli-plus.new.classlib",
+          "group": "1_common@2"
+        },
+        {
+          "command": "dotnet-cli-plus.new.xunit",
+          "group": "2_test@1"
+        },
+        {
+          "command": "dotnet-cli-plus.new.nunit",
+          "group": "2_test@2"
+        },
+        {
+          "command": "dotnet-cli-plus.new.mstest",
+          "group": "2_test@3"
+        },
+        {
+          "command": "dotnet-cli-plus.new.webapi",
+          "group": "3_web@1"
+        },
+        {
+          "command": "dotnet-cli-plus.new.web",
+          "group": "3_web@2"
+        },
+        {
+          "command": "dotnet-cli-plus.new.webapp",
+          "group": "3_web@3"
+        },
+        {
+          "command": "dotnet-cli-plus.new.mvc",
+          "group": "3_web@4"
+        },
+        {
+          "command": "dotnet-cli-plus.new.blazor",
+          "group": "3_web@5"
+        },
+        {
+          "command": "dotnet-cli-plus.new.worker",
+          "group": "4_services@1"
+        },
+        {
+          "command": "dotnet-cli-plus.new.grpc",
+          "group": "4_services@2"
+        },
+        {
+          "command": "dotnet-cli-plus.new.gitignore",
+          "group": "5_files@1"
+        },
+        {
+          "command": "dotnet-cli-plus.new.editorconfig",
+          "group": "5_files@2"
+        },
+        {
+          "command": "dotnet-cli-plus.new.globaljson",
+          "group": "5_files@3"
+        },
+        {
+          "command": "dotnet-cli-plus.new.nugetconfig",
+          "group": "5_files@4"
+        },
+        {
+          "command": "dotnet-cli-plus.new.sln",
+          "group": "5_files@5"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DotNet CLI Plus",
+      "properties": {
+        "dotnetCliPlus.build.configuration": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "debug",
+            "release"
+          ],
+          "enumDescriptions": [
+            "Use the project's default configuration (no -c flag)",
+            "Build with -c Debug",
+            "Build with -c Release"
+          ],
+          "description": "Configuration to pass to dotnet build"
+        },
+        "dotnetCliPlus.run.configuration": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "debug",
+            "release"
+          ],
+          "enumDescriptions": [
+            "Use the project's default configuration (no -c flag)",
+            "Run with -c Debug",
+            "Run with -c Release"
+          ],
+          "description": "Configuration to pass to dotnet run"
+        },
+        "dotnetCliPlus.watch.mode": {
+          "type": "string",
+          "default": "run",
+          "enum": [
+            "run",
+            "build",
+            "test"
+          ],
+          "enumDescriptions": [
+            "dotnet watch run (hot reload)",
+            "dotnet watch build",
+            "dotnet watch test"
+          ],
+          "description": "Default mode for .NET: Watch Project"
+        },
+        "dotnetCliPlus.test.noBuild": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run dotnet test with --no-build (skips the implicit build; faster but requires an up-to-date build)"
+        },
+        "dotnetCliPlus.newProject.outputRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Default output directory for the New Project wizard, relative to the workspace root. Leave empty to use the workspace root."
+        },
+        "dotnetCliPlus.newProject.addToSolution": {
+          "type": "boolean",
+          "default": true,
+          "description": "Offer to add newly created projects to the workspace solution (when one exists)"
+        },
+        "dotnetCliPlus.nuget.prerelease": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include prerelease versions when searching and updating NuGet packages"
+        },
+        "dotnetCliPlus.publish.configuration": {
+          "type": "string",
+          "default": "release",
+          "enum": [
+            "debug",
+            "release"
+          ],
+          "enumDescriptions": [
+            "Publish with -c Debug",
+            "Publish with -c Release"
+          ],
+          "description": "Default configuration for dotnet publish / dotnet pack"
+        },
+        "dotnetCliPlus.restoreCheck.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Offer to restore NuGet packages when the solution or project files change after a git branch switch"
+        },
+        "dotnetCliPlus.sdk.checkOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Verify that the dotnet SDK is available and that global.json pins an installed SDK when VS Code opens a .NET workspace"
+        },
+        "dotnetCliPlus.ai.provider": {
+          "type": "string",
+          "default": "copilot",
+          "enum": [
+            "copilot",
+            "claude"
+          ],
+          "enumDescriptions": [
+            "Use GitHub Copilot for AI-powered fixes",
+            "Use Claude Code for AI-powered fixes"
+          ],
+          "description": "Choose which AI assistant to use for auto-fix functionality"
+        },
+        "dotnetCliPlus.ai.autoFixEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show 'Auto Fix' buttons in the Build Errors webview. Requires the selected AI assistant to be installed."
+        }
+      }
+    }
+  },
+  "snippets": [
+    {
+      "language": "csharp",
+      "path": "./snippets/csharp.code-snippets"
+    }
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.107.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.27.1",
+    "eslint": "^9.39.1",
+    "npm-run-all": "^4.1.5",
+    "typescript-eslint": "^8.48.1"
+  },
+  "dependencies": {
+    "jsonc-parser": "^3.3.1"
+  }
+}

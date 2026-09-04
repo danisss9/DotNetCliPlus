@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'dnp_*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run check-types
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: xvfb-run -a npm test
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#dnp_}" >> $GITHUB_OUTPUT
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Package VS Code extension
+        run: npx @vscode/vsce package --no-dependencies -o dotnet-cli-plus-${{ steps.version.outputs.VERSION }}.vsix
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: DotNet CLI Plus ${{ steps.version.outputs.VERSION }}
+          files: dotnet-cli-plus-${{ steps.version.outputs.VERSION }}.vsix
+          generate_release_notes: true
+
+      - name: Publish VS Code extension
+        run: npx @vscode/vsce publish --packagePath dotnet-cli-plus-${{ steps.version.outputs.VERSION }}.vsix --pat ${{ secrets.MARKETPLACE_PAT }}

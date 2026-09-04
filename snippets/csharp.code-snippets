@@ -1,0 +1,165 @@
+{
+	"Auto-implemented property": {
+		"prefix": "prop",
+		"body": [
+			"public ${1:type} ${2:Name} { get; set; }"
+		],
+		"description": "Auto-implemented property with get and set"
+	},
+	"Read-only auto property": {
+		"prefix": "propg",
+		"body": [
+			"public ${1:type} ${2:Name} { get; private set; }"
+		],
+		"description": "Auto-implemented property with private set"
+	},
+	"Full property with backing field": {
+		"prefix": "propfull",
+		"body": [
+			"private ${1:type} _${2:name};",
+			"",
+			"public ${1:type} ${3:Name}",
+			"{",
+			"    get { return _${2:name}; }",
+			"    set { _${2:name} = value; }",
+			"}"
+		],
+		"description": "Property with explicit backing field"
+	},
+	"Constructor": {
+		"prefix": "ctor",
+		"body": [
+			"public ${1:$CURRENT_CLASS}(${2:parameters})",
+			"{",
+			"    ${3:// TODO}",
+			"}"
+		],
+		"description": "Constructor"
+	},
+	"Console.WriteLine": {
+		"prefix": "cw",
+		"body": [
+			"Console.WriteLine($0);"
+		],
+		"description": "Console.WriteLine"
+	},
+	"Simple method": {
+		"prefix": "sim",
+		"body": [
+			"${1:public} ${2:void} ${3:MethodName}(${4:parameters})",
+			"{",
+			"    ${5:// TODO}",
+			"}"
+		],
+		"description": "Method declaration"
+	},
+	"Async Task method": {
+		"prefix": "asyncm",
+		"body": [
+			"${1:public} async Task${2:<TResult>} ${3:MethodName}(${4:parameters})",
+			"{",
+			"    ${5:await Task.CompletedTask;}",
+			"}"
+		],
+		"description": "Async method returning Task"
+	},
+	"Null check guard": {
+		"prefix": "nullcheck",
+		"body": [
+			"${1:ArgumentNullException}.ThrowIfNull(${2:value});"
+		],
+		"description": "ThrowIfNull guard clause"
+	},
+	"Argument out of range guard": {
+		"prefix": "argcheck",
+		"body": [
+			"${1:ArgumentOutOfRangeException}.ThrowIf${2:Negative}(${3:value});"
+		],
+		"description": "ThrowIf guard clause"
+	},
+	"using statement": {
+		"prefix": "using",
+		"body": [
+			"using (var ${1:resource} = ${2:expression})",
+			"{",
+			"    ${3:// TODO}",
+			"}"
+		],
+		"description": "using statement with declaration"
+	},
+	"xunit fact": {
+		"prefix": "fact",
+		"body": [
+			"[Fact]",
+			"public void ${1:TestName}()",
+			"{",
+			"    ${2:// Arrange}",
+			"",
+			"    ${3:// Act}",
+			"",
+			"    ${4:// Assert}",
+			"}"
+		],
+		"description": "xUnit [Fact] test method"
+	},
+	"xunit theory": {
+		"prefix": "theory",
+		"body": [
+			"[Theory]",
+			"[InlineData(${1:data})]",
+			"public void ${2:TestName}(${3:parameters})",
+			"{",
+			"    ${4:// Assert}",
+			"}"
+		],
+		"description": "xUnit [Theory] test method"
+	},
+	"MSTest test method": {
+		"prefix": "testm",
+		"body": [
+			"[TestMethod]",
+			"public void ${1:TestName}()",
+			"{",
+			"    ${2:// Assert}",
+			"}"
+		],
+		"description": "MSTest [TestMethod] test method"
+	},
+	"NUnit test method": {
+		"prefix": "testn",
+		"body": [
+			"[Test]",
+			"public void ${1:TestName}()",
+			"{",
+			"    ${2:// Assert}",
+			"}"
+		],
+		"description": "NUnit [Test] test method"
+	},
+	"Dispose pattern": {
+		"prefix": "dispose",
+		"body": [
+			"private bool _disposed;",
+			"",
+			"protected virtual void Dispose(bool disposing)",
+			"{",
+			"    if (!_disposed)",
+			"    {",
+			"        if (disposing)",
+			"        {",
+			"            ${1:// TODO: dispose managed state}",
+			"        }",
+			"",
+			"        _disposed = true;",
+			"    }",
+			"}",
+			"",
+			"public void Dispose()",
+			"{",
+			"    Dispose(disposing: true);",
+			"    GC.SuppressFinalize(this);",
+			"}"
+		],
+		"description": "IDisposable implementation"
+	}
+}
