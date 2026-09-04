@@ -422,7 +422,7 @@ describe('parseMsbuildIssues', () => {
     const warning = issues[1];
     assert.strictEqual(warning.severity, 'warning');
     assert.strictEqual(warning.code, 'CS0219');
-    assert.strictEqual(warning.file, ['Services', 'Foo.cs'].join(path.sep) === 'Services\\Foo.cs' ? 'Services\\Foo.cs' : 'Services/Foo.cs');
+    assert.strictEqual(warning.file, 'Services\\Foo.cs');
   });
 
   it('parses locations without a column', () => {
