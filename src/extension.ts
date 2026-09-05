@@ -39,6 +39,7 @@ import { manageSdks, checkDotnetOnStartup } from './sdk';
 import { setupNuGetAuth } from './nuget-auth';
 import { manageConfigs } from './config-manager';
 import { publishProject } from './publish';
+import { activateTestExplorer, refreshAllTests } from './testing/test-controller';
 import { setupRestoreCheck, teardownRestoreCheck, teardownAllRestoreChecks } from './restore-check';
 
 const NEW_TEMPLATE_COMMANDS: Array<{ short: string; label: string }> = [
@@ -79,6 +80,7 @@ function folderLooksLikeDotnet(root: string): boolean {
 
 export function activate(context: vscode.ExtensionContext) {
   setExtensionContext(context);
+  activateTestExplorer(context);
 
   const persisted = loadPersistedTerminalEntries();
   for (const name of Object.keys(persisted)) {
@@ -129,6 +131,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dotnet-cli-plus.addProjectReference', () => addProjectReference()),
     vscode.commands.registerCommand('dotnet-cli-plus.removeProjectReference', () => removeProjectReference()),
     vscode.commands.registerCommand('dotnet-cli-plus.listProjectReferences', () => listProjectReferences()),
+    vscode.commands.registerCommand('dotnet-cli-plus.refreshTests', () => refreshAllTests()),
     vscode.commands.registerCommand('dotnet-cli-plus.openCommandPalette', () =>
       vscode.commands.executeCommand('workbench.action.quickOpen', '>DotNet CLI Plus'),
     ),

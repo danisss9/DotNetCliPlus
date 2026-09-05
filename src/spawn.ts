@@ -10,6 +10,13 @@ export interface SpawnManagedOptions {
   quoteCommand?: boolean;
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
+  cancellation?: SpawnCancellation;
+}
+
+export interface SpawnCancellation {
+  onCancellationRequested: (callback: () => void) => void;
+  offCancellationRequested?: (callback: () => void) => void;
+  isCancellationRequested: () => boolean;
 }
 
 export interface SpawnManagedResult {
@@ -27,6 +34,16 @@ export function spawnManaged(
       options.shell && options.quoteCommand !== false ? quoteShellPath(command) : command;
     const proc = cp.spawn(spawnCommand, args, { cwd: options.cwd, shell: options.shell });
     activeChildren.add(proc);
+
+    const cancellation = options.cancellation;
+    const cancelCallback = () => proc.kill();
+    if (cancellation) {
+      if (cancellation.isCancellationRequested()) {
+        proc.kill();
+      } else {
+        cancellation.onCancellationRequested(cancelCallback);
+      }
+    }
 
     let out = '';
     let settled = false;
@@ -49,6 +66,7 @@ export function spawnManaged(
       if (timeoutHandle) {
         clearTimeout(timeoutHandle);
       }
+      cancellation?.offCancellationRequested?.(cancelCallback);
       resolve(result);
     };
 

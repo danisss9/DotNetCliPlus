@@ -41,6 +41,7 @@ Every command is also available in the Command Palette under the **DotNet CLI Pl
 ## Features
 
 - **Solution & project aware** — discovers `.sln`/`.slnx` files (falls back to standalone `.csproj`), parses projects directly, and offers smart pickers with *Current project* / *Last used* context rows
+- **Test Explorer** — Testing view populated from `dotnet test --list-tests` (project → namespace → class → test), with Run, Debug and Coverage profiles; TRX results, failure messages/stack traces, per-line coverage gutters and the built-in Coverage view
 - **Terminal lifecycle management** — tracked, reused terminals; restart prompts for long-running commands; exit-code toasts with Retry
 - **NuGet management** — package search with version picker, outdated-package webview with per-project batch updates, add/remove/list
 - **Project references** — add (with circular-reference detection), remove, list
@@ -57,6 +58,8 @@ Every command is also available in the Command Palette under the **DotNet CLI Pl
 | `run.configuration` | `default` | Configuration for dotnet run |
 | `watch.mode` | `run` | Default watch mode (run/build/test) |
 | `test.noBuild` | `false` | Pass --no-build to dotnet test |
+| `testExplorer.enabled` | `true` | Populate the Testing view with Run / Debug / Coverage profiles |
+| `testExplorer.locateInSource` | `true` | Attach source locations to discovered tests (heuristic attribute scan) |
 | `newProject.outputRoot` | `""` | Default output dir for the New Project wizard |
 | `newProject.addToSolution` | `true` | Offer `dotnet sln add` after creating projects |
 | `nuget.prerelease` | `false` | Include prerelease versions in package search |
@@ -69,8 +72,8 @@ Every command is also available in the Command Palette under the **DotNet CLI Pl
 ## Roadmap
 
 - Solution Explorer tree view (solution → projects → references)
-- Test Explorer integration (`dotnet test --list-tests`, TRX results)
-- Code coverage (`--collect "XPlat Code Coverage"`)
+- Microsoft.Testing.Platform (xUnit v3 native mode) support in the Test Explorer
+- Coverage thresholds and diffs
 
 ## Development
 

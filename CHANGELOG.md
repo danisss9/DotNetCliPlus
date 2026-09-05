@@ -4,6 +4,20 @@ All notable changes to the "dotnet-cli-plus" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [Unreleased]
+
+### Added
+
+- **Test Explorer integration.** Populates the VS Code Testing view with tests discovered via `dotnet test --list-tests` (per TFM for multi-targeted projects), grouped as project → namespace → class → test. Three run profiles: **Run** (chunked `--filter` batches with TRX results parsed into per-test pass/fail/skip states, failure messages and stack traces with clickable source locations), **Debug** (launches `dotnet test` under the `coreclr` debugger; breakpoints in test and product code hit directly) and **Coverage** (`--collect "XPlat Code Coverage"` in the same run — cobertura files are parsed into native line/branch coverage gutters and the built-in Coverage view). Live output streams to the "DotNet CLI Plus: test" channel and the Test Results panel. Test items link back to their source via a heuristic `[Fact]`/`[Test]`/`[TestMethod]` attribute scan; `.NET: Refresh Tests` forces re-discovery, and saving test sources refreshes automatically (debounced). Respects `test.noBuild` and `build.configuration`.
+- New settings: `testExplorer.enabled` (default `true`), `testExplorer.locateInSource` (default `true`).
+
+### Notes
+
+- Test discovery triggers an incremental build on first use (`--list-tests` builds the project).
+- Microsoft.Testing.Platform projects (xUnit v3 native mode, without `Microsoft.NET.Test.Sdk`) are detected and reported with an explanatory item; support is planned.
+- Theory cases appear as individual tests when the framework lists them per-case (xUnit: `Method(value: 1)`); run filters target the base method so selecting one case runs (and reports) all cases of the theory.
+- Coverage depends on coverlet working in your environment: some setups (e.g. coverlet.collector restored from the Visual Studio offline feed, or incompatible coverlet/Test.Sdk/SDK combinations) produce empty cobertura reports. The run output explains when that happens; updating `coverlet.collector` + `Microsoft.NET.Test.Sdk` normally fixes it.
+
 ## [1.0.0]
 
 Initial release. A free, sign-in-free companion to the base C# extension (`ms-dotnettools.csharp`) that covers the solution/project workflow features normally gated behind the C# Dev Kit. All commands are available in the Command Palette under the "DotNet CLI Plus" category, via the status bar item, and through `Ctrl+Shift+D` chord keybindings.

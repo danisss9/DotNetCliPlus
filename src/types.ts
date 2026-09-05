@@ -113,3 +113,46 @@ export interface ProjectOutdatedPackages {
 export type BuildTarget =
   | { kind: 'solution'; path: string; name: string }
   | { kind: 'project'; entry: ProjectEntry };
+
+// ── Testing (Test Explorer / TRX) ─────────────────────────────────────────────
+
+export type TrxOutcome = 'passed' | 'failed' | 'skipped';
+
+export interface TrxTestResult {
+  /** Display name as reported in the TRX UnitTestResult element */
+  testName: string;
+  /** Class name from the TestDefinitions entry, when available */
+  className?: string;
+  /** Method name from the TestDefinitions entry, when available */
+  methodName?: string;
+  outcome: TrxOutcome;
+  durationMs: number;
+  message?: string;
+  stackTrace?: string;
+  stdOut?: string;
+}
+
+// ── Testing (code coverage / cobertura) ───────────────────────────────────────
+
+export interface CoberturaLine {
+  number: number;
+  hits: number;
+  branch: boolean;
+  branchCovered?: number;
+  branchTotal?: number;
+}
+
+export interface CoberturaClass {
+  name: string;
+  filename: string;
+  lines: CoberturaLine[];
+}
+
+export interface CoberturaReport {
+  sources: string[];
+  classes: CoberturaClass[];
+  linesCovered: number;
+  linesValid: number;
+  branchesCovered: number;
+  branchesValid: number;
+}

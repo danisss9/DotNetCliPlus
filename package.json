@@ -145,7 +145,11 @@
       },
       {
         "command": "dotnet-cli-plus.listProjectReferences",
-        "title": ".NET: List Project References",
+        "title": ".NET: List Project References"
+      },
+      {
+        "command": "dotnet-cli-plus.refreshTests",
+        "title": ".NET: Refresh Tests",
         "category": "DotNet CLI Plus"
       },
       {
@@ -437,6 +441,16 @@
           "default": false,
           "description": "Run dotnet test with --no-build (skips the implicit build; faster but requires an up-to-date build)"
         },
+        "dotnetCliPlus.testExplorer.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Populate the VS Code Testing view with tests discovered via dotnet test --list-tests (run, debug and coverage profiles)"
+        },
+        "dotnetCliPlus.testExplorer.locateInSource": {
+          "type": "boolean",
+          "default": true,
+          "description": "Attach source file locations to discovered tests so clicking a test opens the test method (heuristic scan for [Fact]/[Test]-style attributes)"
+        },
         "dotnetCliPlus.newProject.outputRoot": {
           "type": "string",
           "default": "",
@@ -528,6 +542,7 @@
     "typescript-eslint": "^8.48.1"
   },
   "dependencies": {
+    "fast-xml-parser": "^4.5.7",
     "jsonc-parser": "^3.3.1"
   }
 }
