@@ -210,3 +210,45 @@ export function mergeCoverageLines(
   }
   return [...byNumber.values()].sort((a, b) => a.number - b.number);
 }
+
+export interface CoverageTotals {
+  linesCovered: number;
+  linesValid: number;
+  branchesCovered: number;
+  branchesValid: number;
+  /** 0–100, weighted by instrumented lines; null when nothing is instrumented. */
+  linePercent: number | null;
+  /** 0–100, weighted by branch count; null when no branch data. */
+  branchPercent: number | null;
+}
+
+/**
+ * Aggregate statement-weighted coverage totals over merged per-file lines.
+ * A line counts as covered when it has at least one hit.
+ */
+export function computeCoverageTotals(files: MergedCoverageLine[][]): CoverageTotals {
+  let linesCovered = 0;
+  let linesValid = 0;
+  let branchesCovered = 0;
+  let branchesValid = 0;
+  for (const lines of files) {
+    for (const line of lines) {
+      linesValid++;
+      if (line.hits > 0) {
+        linesCovered++;
+      }
+      if (line.branch && line.branchTotal > 0) {
+        branchesValid += line.branchTotal;
+        branchesCovered += Math.min(line.branchCovered, line.branchTotal);
+      }
+    }
+  }
+  return {
+    linesCovered,
+    linesValid,
+    branchesCovered,
+    branchesValid,
+    linePercent: linesValid > 0 ? (linesCovered / linesValid) * 100 : null,
+    branchPercent: branchesValid > 0 ? (branchesCovered / branchesValid) * 100 : null,
+  };
+}

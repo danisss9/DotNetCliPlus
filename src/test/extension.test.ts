@@ -800,3 +800,42 @@ describe('configuration helpers', () => {
     assert.strictEqual(configurationLabel(undefined), 'Default');
   });
 });
+
+// ── parseCsproj: Microsoft.Testing.Platform detection ─────────────────────────
+
+describe('parseCsproj MTP detection', () => {
+  const XUNIT_V3_NATIVE = `<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Platform" Version="1.6.3" />
+    <PackageReference Include="xunit.v3" Version="2.0.0" />
+  </ItemGroup>
+</Project>
+`;
+
+  it('marks xunit.v3 native projects as MTP but not VSTest', () => {
+    const info = parseCsproj(XUNIT_V3_NATIVE)!;
+    assert.strictEqual(info.isMtpProject, true);
+    assert.strictEqual(info.isTestProject, false);
+  });
+
+  it('does not mark projects with Microsoft.NET.Test.Sdk as MTP', () => {
+    const withSdk = XUNIT_V3_NATIVE.replace(
+      '<PackageReference Include="Microsoft.Testing.Platform" Version="1.6.3" />',
+      '<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />',
+    );
+    const info = parseCsproj(withSdk)!;
+    assert.strictEqual(info.isMtpProject, false);
+    assert.strictEqual(info.isTestProject, true);
+  });
+
+  it('does not mark plain library projects as MTP', () => {
+    const info = parseCsproj(CSPROJ_CONSOLE)!;
+    assert.strictEqual(info.isMtpProject, false);
+  });
+});

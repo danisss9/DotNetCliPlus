@@ -39,7 +39,7 @@ import { manageSdks, checkDotnetOnStartup } from './sdk';
 import { setupNuGetAuth } from './nuget-auth';
 import { manageConfigs } from './config-manager';
 import { publishProject } from './publish';
-import { activateTestExplorer, refreshAllTests } from './testing/test-controller';
+import { activateTestExplorer, clearCoverageBaseline, refreshAllTests } from './testing/test-controller';
 import { setupRestoreCheck, teardownRestoreCheck, teardownAllRestoreChecks } from './restore-check';
 import {
   SolutionExplorerProvider,
@@ -138,6 +138,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dotnet-cli-plus.removeProjectReference', (node?: unknown) => removeProjectReference(asProjectTarget(node), asRefPath(node))),
     vscode.commands.registerCommand('dotnet-cli-plus.listProjectReferences', () => listProjectReferences()),
     vscode.commands.registerCommand('dotnet-cli-plus.refreshTests', () => refreshAllTests()),
+    vscode.commands.registerCommand('dotnet-cli-plus.clearCoverageBaseline', () => clearCoverageBaseline()),
     vscode.commands.registerCommand('dotnet-cli-plus.openCommandPalette', () =>
       vscode.commands.executeCommand('workbench.action.quickOpen', '>DotNet CLI Plus'),
     ),

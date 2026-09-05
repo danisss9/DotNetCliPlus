@@ -5,13 +5,19 @@ import * as path from 'path';
 import type { CoberturaLine, ProjectEntry, TrxTestResult } from '../types';
 import { discoverProjects, EXCLUDE_GLOB } from '../utils';
 import { spawnManaged } from '../spawn';
-import { configFlag, normalizePathKey } from '../pure-utils';
+import { buildProgramPath, configFlag, configurationLabel, normalizePathKey } from '../pure-utils';
 import { logDiagnostic } from '../state';
 import {
   buildFilterBatches,
   parseListTestsOutput,
   splitTestFqn,
 } from './list-tests';
+import {
+  buildMtpAppArgs,
+  buildMtpFilter,
+  buildMtpRunArgs,
+  parseMtpListTestsOutput,
+} from './mtp';
 import {
   aggregateTrxForTarget,
   matchTrxToTargets,
@@ -22,7 +28,15 @@ import {
   coberturaFileCandidates,
   mergeCoverageLines,
   parseCobertura,
+  type MergedCoverageLine,
 } from './cobertura';
+import {
+  buildCoverageSnapshot,
+  computeCoverageDiff,
+  formatPercent,
+  formatSigned,
+  type CoverageSnapshot,
+} from './coverage-diff';
 import { scanTestSource, type SourceTestLocation } from './source-map';
 
 const REFRESH_DEBOUNCE_MS = 2000;
@@ -30,11 +44,15 @@ const LIST_TESTS_TIMEOUT_MS = 300_000;
 const MAX_SOURCE_FILES_PER_PROJECT = 500;
 const TRX_FLUSH_RETRIES = 8;
 const TRX_FLUSH_DELAY_MS = 500;
+const COVERAGE_BASELINE_KEY = 'dotnetCliPlus.coverage.baseline';
+const MAX_DIFF_REGRESSION_FILES = 10;
+
+type TestFramework = 'vstest' | 'mtp';
 
 interface ProjectNode {
   entry: ProjectEntry;
   item: vscode.TestItem;
-  hasTestSdk: boolean;
+  framework: TestFramework;
   leafFqns: Set<string>;
   sourceLocations: Map<string, SourceTestLocation>;
   discoveryInFlight: Promise<void> | null;
@@ -67,6 +85,10 @@ function fqnFromTestItemId(id: string): string | null {
 
 function looksGenerated(fsPath: string): boolean {
   return /[\\/](bin|obj|node_modules|\.git|\.vs|artifacts)[\\/]/.test(fsPath);
+}
+
+function projectFramework(entry: ProjectEntry): TestFramework {
+  return entry.csproj?.isMtpProject ? 'mtp' : 'vstest';
 }
 
 async function collectFilesRecursive(
@@ -250,7 +272,7 @@ class TestExplorer implements vscode.Disposable {
     for (const folder of vscode.workspace.workspaceFolders ?? []) {
       try {
         for (const entry of await discoverProjects(folder.uri.fsPath, null)) {
-          if (entry.csproj?.isTestProject) {
+          if (entry.csproj?.isTestProject || entry.csproj?.isMtpProject) {
             entries.set(normalizePathKey(entry.csprojPath), entry);
           }
         }
@@ -278,7 +300,7 @@ class TestExplorer implements vscode.Disposable {
         node = {
           entry,
           item,
-          hasTestSdk: entry.csproj?.packageReferences.some((p) => p.id === 'Microsoft.NET.Test.Sdk') ?? false,
+          framework: projectFramework(entry),
           leafFqns: new Set(),
           sourceLocations: new Map(),
           discoveryInFlight: null,
@@ -286,7 +308,7 @@ class TestExplorer implements vscode.Disposable {
         this.projectNodes.set(key, node);
       } else {
         node.entry = entry;
-        node.hasTestSdk = entry.csproj?.packageReferences.some((p) => p.id === 'Microsoft.NET.Test.Sdk') ?? false;
+        node.framework = projectFramework(entry);
       }
       items.push(node.item);
     }
@@ -317,12 +339,12 @@ class TestExplorer implements vscode.Disposable {
       return;
     }
 
-    if (!node.hasTestSdk) {
+    if (node.framework === 'vstest' && !csproj.packageReferences.some((p) => p.id === 'Microsoft.NET.Test.Sdk')) {
       projectItem.error = undefined;
       node.leafFqns = new Set();
       const warning = this.controller.createTestItem(
-        `${projectNodeId(csprojPath)}:mtp`,
-        'Microsoft.Testing.Platform projects are not supported — add the Microsoft.NET.Test.Sdk package or use dotnet test in a terminal.',
+        `${projectNodeId(csprojPath)}:nosdk`,
+        'This test project references neither Microsoft.NET.Test.Sdk nor Microsoft.Testing.Platform — add one of them or use dotnet test in a terminal.',
       );
       warning.canResolveChildren = false;
       projectItem.children.replace([warning]);
@@ -336,19 +358,36 @@ class TestExplorer implements vscode.Disposable {
     let firstError: string | null = null;
 
     for (const tfm of tfmList) {
-      const args = [
-        'test',
-        csprojPath,
-        ...(tfm ? ['-f', tfm] : []),
-        '--list-tests',
-        '--nologo',
-      ];
+      const args =
+        node.framework === 'mtp'
+          ? [
+              'run',
+              '--project',
+              csprojPath,
+              ...(tfm ? ['-f', tfm] : []),
+              '--',
+              '--list-tests',
+            ]
+          : [
+              'test',
+              csprojPath,
+              ...(tfm ? ['-f', tfm] : []),
+              '--list-tests',
+              '--nologo',
+            ];
       const result = await this.spawn(args, projectDir, LIST_TESTS_TIMEOUT_MS);
       if (result.exitCode !== 0) {
-        firstError ??= `dotnet test --list-tests failed (exit code ${result.exitCode}). Check the "DotNet CLI Plus: test" output.`;
+        firstError ??=
+          node.framework === 'mtp'
+            ? `dotnet run -- --list-tests failed (exit code ${result.exitCode}). Check the "DotNet CLI Plus: test" output.`
+            : `dotnet test --list-tests failed (exit code ${result.exitCode}). Check the "DotNet CLI Plus: test" output.`;
         continue;
       }
-      for (const fqn of parseListTestsOutput(result.stdout)) {
+      const names =
+        node.framework === 'mtp'
+          ? parseMtpListTestsOutput(result.stdout)
+          : parseListTestsOutput(result.stdout);
+      for (const fqn of names) {
         fqns.add(fqn);
       }
     }
@@ -580,6 +619,10 @@ class TestExplorer implements vscode.Disposable {
     projectIndex: number,
   ): Promise<void> {
     const { node, leaves } = group;
+    const csproj = node.entry.csproj;
+    if (!csproj) {
+      return;
+    }
     const csprojPath = node.entry.csprojPath;
     const projectDir = path.dirname(csprojPath);
     const projectResultsDir = path.join(rootResultsDir, `p${projectIndex}`);
@@ -590,7 +633,10 @@ class TestExplorer implements vscode.Disposable {
       .filter((fqn): fqn is string => fqn !== null);
 
     let batches: Array<string | null>;
-    if (kind === 'debug') {
+    if (node.framework === 'mtp') {
+      // MTP accepts a single --filter value; always run one combined batch.
+      batches = [group.fullSet ? null : buildMtpFilter(fqns)];
+    } else if (kind === 'debug') {
       // Debug prefers a single combined invocation but falls back to
       // multiple sequential sessions for very large selections.
       batches = group.fullSet
@@ -617,20 +663,70 @@ class TestExplorer implements vscode.Disposable {
         return;
       }
       const filter = batches[batchIndex];
-      const args = [
-        'test',
-        csprojPath,
-        ...configFlag(configuration),
-        ...(noBuild ? ['--no-build'] : []),
-        ...(filter !== null ? ['--filter', filter] : []),
-        '--logger',
-        `trx;LogFileName=run-${batchIndex}.trx`,
-        '--results-directory',
-        projectResultsDir,
-        ...(kind === 'coverage' ? ['--collect', 'XPlat Code Coverage'] : []),
-        '-v',
-        'quiet',
-      ];
+      const commonMtp = {
+        filter,
+        trxFileName: `run-${batchIndex}.trx`,
+        resultsDirectory: projectResultsDir,
+        coverage: kind === 'coverage',
+      };
+      let args: string[];
+      if (node.framework === 'mtp') {
+        if (kind === 'debug') {
+          // The debugger launches the test host dll directly; build it first
+          // because there is no implicit `dotnet run` build.
+          const buildResult = await this.spawn(
+            [
+              'build',
+              csprojPath,
+              ...configFlag(configuration),
+              ...(csproj.targetFrameworks.length > 0
+                ? ['-f', csproj.targetFrameworks[0]]
+                : []),
+            ],
+            projectDir,
+            undefined,
+            token,
+          );
+          if (token.isCancellationRequested) {
+            return;
+          }
+          if (buildResult.exitCode !== 0) {
+            invocationFailed = true;
+            break;
+          }
+          const tfm = csproj.targetFrameworks[0] ?? '';
+          const dll = buildProgramPath(
+            projectDir,
+            tfm,
+            csproj.assemblyName,
+            node.entry.name,
+            configurationLabel(configuration),
+          );
+          args = [dll, ...buildMtpAppArgs(commonMtp)];
+        } else {
+          args = buildMtpRunArgs({
+            csprojPath,
+            configFlags: configFlag(configuration),
+            noBuild,
+            ...commonMtp,
+          });
+        }
+      } else {
+        args = [
+          'test',
+          csprojPath,
+          ...configFlag(configuration),
+          ...(noBuild ? ['--no-build'] : []),
+          ...(filter !== null ? ['--filter', filter] : []),
+          '--logger',
+          `trx;LogFileName=run-${batchIndex}.trx`,
+          '--results-directory',
+          projectResultsDir,
+          ...(kind === 'coverage' ? ['--collect', 'XPlat Code Coverage'] : []),
+          '-v',
+          'quiet',
+        ];
+      }
 
       run.appendOutput(`> dotnet ${args.join(' ')}\n`);
       if (kind === 'debug') {
@@ -820,7 +916,10 @@ class TestExplorer implements vscode.Disposable {
       (name) => name === 'coverage.cobertura.xml',
     );
     if (coberturaFiles.length === 0) {
-      run.appendOutput('No coverage.cobertura.xml was produced by --collect "XPlat Code Coverage".\n');
+      run.appendOutput(
+        'No coverage.cobertura.xml was produced. VSTest projects require --collect "XPlat Code Coverage"; ' +
+          'Microsoft.Testing.Platform projects require the Microsoft.Testing.Extensions.CodeCoverage package (--coverage).\n',
+      );
       return;
     }
 
@@ -830,6 +929,7 @@ class TestExplorer implements vscode.Disposable {
     ];
 
     const byFile = new Map<string, { uri: vscode.Uri; lineSets: Array<{ lines: CoberturaLine[] }> }>();
+    const mergedByFile = new Map<string, MergedCoverageLine[]>();
     let totalClasses = 0;
     for (const file of coberturaFiles) {
       let report;
@@ -855,8 +955,9 @@ class TestExplorer implements vscode.Disposable {
       }
     }
 
-    for (const { uri, lineSets } of byFile.values()) {
+    for (const [key, { uri, lineSets }] of byFile) {
       const merged = mergeCoverageLines(lineSets);
+      mergedByFile.set(key, merged);
       const details = merged.map((line) => {
         const range = new vscode.Range(line.number - 1, 0, line.number - 1, 1);
         const branches =
@@ -883,7 +984,82 @@ class TestExplorer implements vscode.Disposable {
           `Coverage contained ${totalClasses} classes but their source files could not be resolved inside the workspace.\n`,
         );
       }
+      return;
     }
+
+    this.reportCoverageSummary(run, mergedByFile);
+  }
+
+  /**
+   * Prints totals, enforces the configured line/branch thresholds (failing the
+   * run with a synthetic item when below) and reports the diff against the
+   * previous coverage run before storing the new baseline.
+   */
+  private async reportCoverageSummary(
+    run: vscode.TestRun,
+    mergedByFile: Map<string, MergedCoverageLine[]>,
+  ): Promise<void> {
+    const config = vscode.workspace.getConfiguration('dotnetCliPlus');
+    const thresholdLine = config.get<number>('coverage.threshold.line', 0);
+    const thresholdBranch = config.get<number>('coverage.threshold.branch', 0);
+
+    const previous = readCoverageBaseline();
+    const diff = computeCoverageDiff(mergedByFile, previous);
+
+    run.appendOutput(
+      `Coverage: lines ${diff.current.linesCovered}/${diff.current.linesValid} (${formatPercent(diff.current.linePercent)}), ` +
+        `branches ${diff.current.branchesCovered}/${diff.current.branchesValid} (${formatPercent(diff.current.branchPercent)}).\n`,
+    );
+
+    if (previous) {
+      run.appendOutput(
+        `Diff vs previous run: lines ${formatSigned(diff.lineDelta)}, branches ${formatSigned(diff.branchDelta)}` +
+          ` (+${diff.filesAdded}/-${diff.filesRemoved} files).\n`,
+      );
+      if (diff.regressions.length > 0) {
+        run.appendOutput('Files with decreased line coverage:\n');
+        for (const regression of diff.regressions.slice(0, MAX_DIFF_REGRESSION_FILES)) {
+          run.appendOutput(
+            `  ${regression.file}: ${formatSigned(regression.lineDelta)} (${regression.linesLost} line(s) lost)\n`,
+          );
+        }
+        if (diff.regressions.length > MAX_DIFF_REGRESSION_FILES) {
+          run.appendOutput(`  … and ${diff.regressions.length - MAX_DIFF_REGRESSION_FILES} more.\n`);
+        }
+      }
+    }
+
+    const failures: string[] = [];
+    if (thresholdLine > 0) {
+      if (diff.current.linePercent === null) {
+        failures.push('no instrumented lines were found');
+      } else if (diff.current.linePercent < thresholdLine) {
+        failures.push(
+          `line coverage ${formatPercent(diff.current.linePercent)} is below the required ${thresholdLine}%`,
+        );
+      }
+    }
+    if (thresholdBranch > 0) {
+      if (diff.current.branchPercent === null) {
+        failures.push('no branch data was found');
+      } else if (diff.current.branchPercent < thresholdBranch) {
+        failures.push(
+          `branch coverage ${formatPercent(diff.current.branchPercent)} is below the required ${thresholdBranch}%`,
+        );
+      }
+    }
+    if (failures.length > 0) {
+      const item = this.controller.createTestItem(
+        'coverage-threshold',
+        'Coverage threshold',
+      );
+      item.canResolveChildren = false;
+      item.description = `${formatPercent(diff.current.linePercent)} lines / ${formatPercent(diff.current.branchPercent)} branches`;
+      run.started(item);
+      run.failed(item, new vscode.TestMessage(`Coverage threshold check failed: ${failures.join('; ')}.`));
+    }
+
+    writeCoverageBaseline(buildCoverageSnapshot(mergedByFile));
   }
 
   private resolveCoveragePath(
@@ -909,6 +1085,25 @@ class TestExplorer implements vscode.Disposable {
 // ── Module lifecycle ──────────────────────────────────────────────────────────
 
 let activeExplorer: TestExplorer | null = null;
+let coverageMemento: vscode.Memento | null = null;
+
+function readCoverageBaseline(): CoverageSnapshot | null {
+  if (!coverageMemento) {
+    return null;
+  }
+  const raw = coverageMemento.get<CoverageSnapshot>(COVERAGE_BASELINE_KEY);
+  return raw && typeof raw === 'object' && raw.files && raw.totals ? raw : null;
+}
+
+function writeCoverageBaseline(snapshot: CoverageSnapshot): void {
+  void coverageMemento?.update(COVERAGE_BASELINE_KEY, snapshot);
+}
+
+/** Clears the stored previous-run coverage baseline (used for diffs). */
+export function clearCoverageBaseline(): void {
+  void coverageMemento?.update(COVERAGE_BASELINE_KEY, undefined);
+  vscode.window.showInformationMessage('DotNet CLI Plus: coverage baseline cleared.');
+}
 
 function isTestExplorerEnabled(): boolean {
   return vscode.workspace
@@ -917,6 +1112,7 @@ function isTestExplorerEnabled(): boolean {
 }
 
 export function activateTestExplorer(context: vscode.ExtensionContext): void {
+  coverageMemento = context.workspaceState;
   const sync = () => {
     if (isTestExplorerEnabled()) {
       if (!activeExplorer) {

@@ -66,6 +66,8 @@ export interface CsprojInfo {
   rootNamespace?: string;
   isPackable: boolean;
   isTestProject: boolean;
+  /** Microsoft.Testing.Platform native project (xUnit v3 native mode etc.) */
+  isMtpProject: boolean;
   userSecretsId?: string;
   packageReferences: PackageReferenceInfo[];
   projectReferences: string[];

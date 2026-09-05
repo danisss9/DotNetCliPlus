@@ -605,3 +605,197 @@ describe('scanTestSource', () => {
     assert.ok(map.has('Async.Tests.DoesWorkAsync'));
   });
 });
+
+// ── mtp ───────────────────────────────────────────────────────────────────────
+
+import {
+  buildMtpAppArgs,
+  buildMtpFilter,
+  buildMtpRunArgs,
+  parseMtpListTestsOutput,
+} from '../testing/mtp';
+import { computeCoverageTotals } from '../testing/cobertura';
+import {
+  buildCoverageSnapshot,
+  computeCoverageDiff,
+  formatPercent,
+  formatSigned,
+} from '../testing/coverage-diff';
+
+describe('parseMtpListTestsOutput', () => {
+  it('extracts test names while skipping banner noise', () => {
+    const out = [
+      'Test execution command line for the MTP V1',
+      '',
+      'MyApp.Tests.CalculatorTests.Adds',
+      'MyApp.Tests.CalculatorTests.Subtracts',
+      'MyApp.Tests.CalculatorTests.Adds',
+      '',
+      '0 failures reported',
+    ].join('\n');
+    assert.deepStrictEqual(parseMtpListTestsOutput(out), [
+      'MyApp.Tests.CalculatorTests.Adds',
+      'MyApp.Tests.CalculatorTests.Subtracts',
+    ]);
+  });
+
+  it('keeps theory display names with arguments', () => {
+    assert.deepStrictEqual(parseMtpListTestsOutput('Ns.C.M(value: 1)\n'), ['Ns.C.M(value: 1)']);
+  });
+
+  it('returns empty for empty output', () => {
+    assert.deepStrictEqual(parseMtpListTestsOutput(''), []);
+  });
+});
+
+describe('buildMtpFilter', () => {
+  it('builds a single OR filter with deduplicated base FQNs', () => {
+    assert.strictEqual(
+      buildMtpFilter(['Ns.C.M(1)', 'Ns.C.M', 'Ns.C.Other']),
+      'FullyQualifiedName=Ns.C.M|FullyQualifiedName=Ns.C.Other',
+    );
+  });
+
+  it('returns null for no tests', () => {
+    assert.strictEqual(buildMtpFilter([]), null);
+  });
+});
+
+describe('buildMtpRunArgs', () => {
+  it('produces dotnet run args with report-trx and coverage', () => {
+    assert.deepStrictEqual(
+      buildMtpRunArgs({
+        csprojPath: 'C:\proj\Tests.csproj',
+        configFlags: ['-c', 'Debug'],
+        noBuild: true,
+        filter: 'FullyQualifiedName=Ns.C.M',
+        trxFileName: 'run-0.trx',
+        resultsDirectory: 'C:\tmp\p0',
+        coverage: true,
+      }),
+      [
+        'run',
+        '--project',
+        'C:\proj\Tests.csproj',
+        '-c',
+        'Debug',
+        '--no-build',
+        '--',
+        '--report-trx',
+        '--report-trx-filename=run-0.trx',
+        '--results-directory',
+        'C:\tmp\p0',
+        '--filter',
+        'FullyQualifiedName=Ns.C.M',
+        '--coverage',
+      ],
+    );
+  });
+
+  it('omits filter when null', () => {
+    const args = buildMtpRunArgs({
+      csprojPath: 'p.csproj',
+      configFlags: [],
+      noBuild: false,
+      filter: null,
+      trxFileName: 'run-0.trx',
+      resultsDirectory: 'r',
+      coverage: false,
+    });
+    assert.ok(!args.includes('--filter'));
+    assert.ok(!args.includes('--coverage'));
+  });
+
+  it('app args target the test host directly', () => {
+    assert.deepStrictEqual(
+      buildMtpAppArgs({
+        filter: null,
+        trxFileName: 'run-0.trx',
+        resultsDirectory: 'r',
+        coverage: false,
+      }),
+      ['--report-trx', '--report-trx-filename=run-0.trx', '--results-directory', 'r'],
+    );
+  });
+});
+
+// ── coverage totals & diff ────────────────────────────────────────────────────
+
+function lines(entries: Array<[number, number, boolean?, number?, number?]>) {
+  return entries.map(([number, hits, branch, branchCovered, branchTotal]) => ({
+    number,
+    hits,
+    branch: branch ?? false,
+    branchCovered: branchCovered ?? 0,
+    branchTotal: branchTotal ?? 0,
+  }));
+}
+
+describe('computeCoverageTotals', () => {
+  it('computes weighted line and branch percentages', () => {
+    const totals = computeCoverageTotals([
+      lines([
+        [10, 1],
+        [11, 0],
+        [12, 1, true, 1, 2],
+      ]),
+      lines([[20, 0]]),
+    ]);
+    assert.strictEqual(totals.linesCovered, 2);
+    assert.strictEqual(totals.linesValid, 4);
+    assert.strictEqual(totals.branchesCovered, 1);
+    assert.strictEqual(totals.branchesValid, 2);
+    assert.strictEqual(totals.linePercent, 50);
+    assert.strictEqual(totals.branchPercent, 50);
+  });
+
+  it('returns null percentages for empty data', () => {
+    const totals = computeCoverageTotals([]);
+    assert.strictEqual(totals.linePercent, null);
+    assert.strictEqual(totals.branchPercent, null);
+  });
+});
+
+describe('computeCoverageDiff', () => {
+  const currentFile = lines([
+    [10, 1],
+    [11, 0],
+  ]);
+  const previousFile = lines([
+    [10, 1],
+    [11, 1],
+  ]);
+
+  it('reports regressions and deltas vs the previous snapshot', () => {
+    const previous = buildCoverageSnapshot(new Map([['math.cs', previousFile]]));
+    const diff = computeCoverageDiff(new Map([['math.cs', currentFile]]), previous);
+    assert.strictEqual(diff.previous.linePercent, 100);
+    assert.strictEqual(diff.current.linePercent, 50);
+    assert.strictEqual(diff.lineDelta, -50);
+    assert.strictEqual(diff.regressions.length, 1);
+    assert.strictEqual(diff.regressions[0].file, 'math.cs');
+    assert.strictEqual(diff.regressions[0].linesLost, 1);
+  });
+
+  it('counts added and removed files', () => {
+    const previous = buildCoverageSnapshot(new Map([['old.cs', previousFile]]));
+    const diff = computeCoverageDiff(new Map([['new.cs', currentFile]]), previous);
+    assert.strictEqual(diff.filesAdded, 1);
+    assert.strictEqual(diff.filesRemoved, 1);
+    assert.deepStrictEqual(diff.regressions, []);
+  });
+
+  it('no baseline yields zero deltas and no regressions', () => {
+    const diff = computeCoverageDiff(new Map([['math.cs', currentFile]]), null);
+    assert.strictEqual(diff.lineDelta, 0);
+    assert.deepStrictEqual(diff.regressions, []);
+  });
+
+  it('formats percentages and signed points', () => {
+    assert.strictEqual(formatPercent(50), '50.0%');
+    assert.strictEqual(formatPercent(null), 'n/a');
+    assert.strictEqual(formatSigned(1.25), '+1.3 pts');
+    assert.strictEqual(formatSigned(-2), '-2.0 pts');
+    assert.strictEqual(formatSigned(null), 'n/a');
+  });
+});

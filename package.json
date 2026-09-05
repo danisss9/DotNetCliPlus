@@ -154,6 +154,11 @@
         "category": "DotNet CLI Plus"
       },
       {
+        "command": "dotnet-cli-plus.clearCoverageBaseline",
+        "title": ".NET: Clear Coverage Baseline",
+        "category": "DotNet CLI Plus"
+      },
+      {
         "command": "dotnet-cli-plus.new.console",
         "title": "Console App"
       },
@@ -578,6 +583,20 @@
           "type": "boolean",
           "default": true,
           "description": "Attach source file locations to discovered tests so clicking a test opens the test method (heuristic scan for [Fact]/[Test]-style attributes)"
+        },
+        "dotnetCliPlus.coverage.threshold.line": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Minimum aggregate line coverage (%) required by the Coverage profile. 0 disables the check; below the threshold the run is marked failed with a summary."
+        },
+        "dotnetCliPlus.coverage.threshold.branch": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Minimum aggregate branch coverage (%) required by the Coverage profile. 0 disables the check; below the threshold the run is marked failed with a summary."
         },
         "dotnetCliPlus.newProject.outputRoot": {
           "type": "string",

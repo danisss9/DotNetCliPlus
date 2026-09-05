@@ -308,6 +308,17 @@ export function parseCsproj(content: string): CsprojInfo | null {
   const isTestProject = /<IsTestProject>\s*true\s*<\/IsTestProject>/i.test(content) ||
     packageReferences.some((p) => p.id === 'Microsoft.NET.Test.Sdk');
 
+  // Microsoft.Testing.Platform "native mode" (e.g. xunit.v3 without the VSTest
+  // adapter): Test.Sdk absent but the MTP framework (or a framework built on
+  // it) is referenced.
+  const hasTestSdk = packageReferences.some((p) => p.id === 'Microsoft.NET.Test.Sdk');
+  const isMtpProject = !hasTestSdk && packageReferences.some(
+    (p) =>
+      p.id === 'Microsoft.Testing.Platform' ||
+      p.id === 'xunit.v3' ||
+      p.id === 'xunit.v3.core',
+  );
+
   const packableRaw = readTag(content, 'IsPackable');
 
   return {
@@ -320,6 +331,7 @@ export function parseCsproj(content: string): CsprojInfo | null {
     rootNamespace: readTag(content, 'RootNamespace'),
     isPackable: packableRaw === undefined ? true : packableRaw.toLowerCase() === 'true',
     isTestProject,
+    isMtpProject,
     userSecretsId: readTag(content, 'UserSecretsId'),
     packageReferences,
     projectReferences,
