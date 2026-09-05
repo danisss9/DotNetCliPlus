@@ -17,6 +17,7 @@
   ],
   "main": "./dist/extension.js",
   "recommendations": [
+    "ms-dotnettools.vscode-dotnet-runtime",
     "ms-dotnettools.csharp",
     "github.copilot",
     "anthropic.claude-code"
