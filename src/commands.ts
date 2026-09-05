@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import type { BuildTarget, TerminalCommandState } from './types';
+import * as path from 'path';
+import type { BuildTarget, ProjectEntry, ProjectTarget, SolutionTarget, TerminalCommandState } from './types';
 import {
   buildDotnetTerminalCommand,
   pickBuildTarget,
@@ -8,6 +9,8 @@ import {
   runInTerminal,
   targetLabel,
   targetPath,
+  type PickBuildTargetOptions,
+  type PickProjectOptions,
 } from './utils';
 import {
   clearTrackedTerminalState,
@@ -22,105 +25,129 @@ function buildConfigurationArgs(): string[] {
   return configFlag(config);
 }
 
-export async function restorePackages(): Promise<void> {
+function toBuildTarget(target: SolutionTarget | ProjectTarget): BuildTarget {
+  return 'entry' in target
+    ? { kind: 'project', entry: target.entry }
+    : { kind: 'solution', path: target.slnPath, name: path.basename(target.slnPath) };
+}
+
+async function resolveBuildTarget(
+  title: string,
+  options: PickBuildTargetOptions,
+  target?: SolutionTarget | ProjectTarget,
+): Promise<{ root: string; target: BuildTarget } | null> {
+  if (target) {
+    return { root: target.root, target: toBuildTarget(target) };
+  }
   const ws = await resolveDotnetWorkspace();
   if (!ws) {
-    return;
+    return null;
   }
-  const target = await pickBuildTarget(ws, '.NET: Restore', {
-    allowSolution: true,
-    commandKey: 'restore',
-  });
-  if (!target) {
+  const picked = await pickBuildTarget(ws, title, options);
+  if (!picked) {
+    return null;
+  }
+  return { root: ws.root, target: picked };
+}
+
+async function resolveProject(
+  title: string,
+  options: PickProjectOptions,
+  target?: ProjectTarget,
+): Promise<{ root: string; project: ProjectEntry } | null> {
+  if (target) {
+    return { root: target.root, project: target.entry };
+  }
+  const ws = await resolveDotnetWorkspace();
+  if (!ws) {
+    return null;
+  }
+  const project = await pickProjectWithCurrentFile(ws.projects, title, options);
+  if (!project) {
+    return null;
+  }
+  return { root: ws.root, project };
+}
+
+export async function restorePackages(target?: SolutionTarget | ProjectTarget): Promise<void> {
+  const resolved = await resolveBuildTarget(
+    '.NET: Restore',
+    { allowSolution: true, commandKey: 'restore' },
+    target,
+  );
+  if (!resolved) {
     return;
   }
   await runInTerminal(
-    `dotnet restore (${targetLabel(target)})`,
-    buildDotnetTerminalCommand(['restore', targetPath(target)]),
-    ws.root,
+    `dotnet restore (${targetLabel(resolved.target)})`,
+    buildDotnetTerminalCommand(['restore', targetPath(resolved.target)]),
+    resolved.root,
     { successMessage: 'Restore completed.', retryLabel: 'Retry' },
   );
 }
 
-export async function buildTarget(rebuild = false): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
-  }
-  const target = await pickBuildTarget(ws, rebuild ? '.NET: Rebuild' : '.NET: Build', {
-    allowSolution: true,
-    commandKey: 'build',
-  });
-  if (!target) {
+export async function buildTarget(rebuild = false, target?: SolutionTarget | ProjectTarget): Promise<void> {
+  const resolved = await resolveBuildTarget(
+    rebuild ? '.NET: Rebuild' : '.NET: Build',
+    { allowSolution: true, commandKey: 'build' },
+    target,
+  );
+  if (!resolved) {
     return;
   }
   const args = [
     'build',
-    targetPath(target),
+    targetPath(resolved.target),
     ...(rebuild ? ['--no-incremental'] : []),
     ...buildConfigurationArgs(),
   ];
   await runInTerminal(
-    `dotnet ${rebuild ? 'rebuild' : 'build'} (${targetLabel(target)})`,
+    `dotnet ${rebuild ? 'rebuild' : 'build'} (${targetLabel(resolved.target)})`,
     buildDotnetTerminalCommand(args),
-    ws.root,
+    resolved.root,
     { successMessage: 'Build succeeded.', retryLabel: 'Retry' },
   );
 }
 
-export async function cleanTarget(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
-  }
-  const target = await pickBuildTarget(ws, '.NET: Clean', {
-    allowSolution: true,
-    commandKey: 'clean',
-  });
-  if (!target) {
+export async function cleanTarget(target?: SolutionTarget | ProjectTarget): Promise<void> {
+  const resolved = await resolveBuildTarget('.NET: Clean', { allowSolution: true, commandKey: 'clean' }, target);
+  if (!resolved) {
     return;
   }
   await runInTerminal(
-    `dotnet clean (${targetLabel(target)})`,
-    buildDotnetTerminalCommand(['clean', targetPath(target)]),
-    ws.root,
+    `dotnet clean (${targetLabel(resolved.target)})`,
+    buildDotnetTerminalCommand(['clean', targetPath(resolved.target)]),
+    resolved.root,
     { successMessage: 'Clean completed.', retryLabel: 'Retry' },
   );
 }
 
-export async function runProject(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
+export async function runProject(target?: ProjectTarget): Promise<void> {
+  const resolved = await resolveProject(
+    '.NET: Run Project',
+    { runnableOnly: true, commandKey: 'run' },
+    target,
+  );
+  if (!resolved) {
     return;
   }
-  const project = await pickProjectWithCurrentFile(ws.projects, '.NET: Run Project', {
-    runnableOnly: true,
-    commandKey: 'run',
-  });
-  if (!project) {
-    return;
-  }
+  const { root, project } = resolved;
   const config = vscode.workspace.getConfiguration('dotnetCliPlus').get<string>('run.configuration', 'default');
   const args = ['run', '--project', project.csprojPath, ...configFlag(config)];
   await runInTerminal(
     `dotnet run (${project.name})`,
     buildDotnetTerminalCommand(args),
-    ws.root,
+    root,
     { longRunning: true },
   );
 }
 
-export async function watchProject(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
+export async function watchProject(target?: ProjectTarget): Promise<void> {
+  const resolved = await resolveProject('.NET: Watch Project', { commandKey: 'watch' }, target);
+  if (!resolved) {
     return;
   }
-  const project = await pickProjectWithCurrentFile(ws.projects, '.NET: Watch Project', {
-    commandKey: 'watch',
-  });
-  if (!project) {
-    return;
-  }
+  const { root, project } = resolved;
   const modes: Array<{ label: string; description: string; mode: string }> = [
     { label: '$(play)  run', description: 'dotnet watch run — hot reload while running', mode: 'run' },
     { label: '$(eye)  build', description: 'dotnet watch build — rebuild on change', mode: 'build' },
@@ -137,22 +164,18 @@ export async function watchProject(): Promise<void> {
   await runInTerminal(
     `dotnet watch (${project.name})`,
     buildDotnetTerminalCommand(args),
-    ws.root,
+    root,
     { longRunning: true },
   );
 }
 
-export async function testProject(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
-  }
-  const target = await pickBuildTarget(ws, '.NET: Test', {
-    allowSolution: true,
-    testOnly: true,
-    commandKey: 'test',
-  });
-  if (!target) {
+export async function testProject(target?: SolutionTarget | ProjectTarget): Promise<void> {
+  const resolved = await resolveBuildTarget(
+    '.NET: Test',
+    { allowSolution: true, testOnly: true, commandKey: 'test' },
+    target,
+  );
+  if (!resolved) {
     return;
   }
   const filter = await vscode.window.showInputBox({
@@ -174,14 +197,14 @@ export async function testProject(): Promise<void> {
   const noBuild = vscode.workspace.getConfiguration('dotnetCliPlus').get<boolean>('test.noBuild', false);
   const args = [
     'test',
-    targetPath(target),
+    targetPath(resolved.target),
     ...(filter.trim().length > 0 ? ['--filter', filter.trim()] : []),
     ...(noBuild ? ['--no-build'] : []),
   ];
   await runInTerminal(
-    `dotnet test (${targetLabel(target)})`,
+    `dotnet test (${targetLabel(resolved.target)})`,
     buildDotnetTerminalCommand(args),
-    ws.root,
+    resolved.root,
     { successMessage: 'Tests passed.', retryLabel: 'Retry' },
   );
 }
@@ -214,16 +237,13 @@ async function runFormat(
   );
 }
 
-export async function formatProject(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
-  }
-  const target = await pickBuildTarget(ws, '.NET: Format', {
-    allowSolution: true,
-    commandKey: 'format',
-  });
-  if (!target) {
+export async function formatProject(target?: SolutionTarget | ProjectTarget): Promise<void> {
+  const resolved = await resolveBuildTarget(
+    '.NET: Format',
+    { allowSolution: true, commandKey: 'format' },
+    target,
+  );
+  if (!resolved) {
     return;
   }
   const subcommands: Array<{ label: string; description: string; sub: string }> = [
@@ -234,7 +254,7 @@ export async function formatProject(): Promise<void> {
   ];
   const pickedSub = await vscode.window.showQuickPick(subcommands, {
     placeHolder: 'Select what to format',
-    title: `dotnet format (${targetLabel(target)})`,
+    title: `dotnet format (${targetLabel(resolved.target)})`,
   });
   if (!pickedSub) {
     return;
@@ -250,7 +270,7 @@ export async function formatProject(): Promise<void> {
   if (!pickedMode) {
     return;
   }
-  await runFormat(ws.root, target, pickedSub.sub, pickedMode.mode);
+  await runFormat(resolved.root, resolved.target, pickedSub.sub, pickedMode.mode);
 }
 
 interface TerminalItem extends vscode.QuickPickItem {

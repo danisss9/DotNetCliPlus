@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { XMLParser } from 'fast-xml-parser';
 import type {
   CsprojInfo,
   DotnetTemplate,
@@ -8,6 +9,7 @@ import type {
   ProjectOutdatedPackages,
   RuntimeInfo,
   SdkInfo,
+  SlnHierarchyNode,
   SlnProject,
 } from './types';
 
@@ -99,6 +101,155 @@ export function parseSlnx(content: string): string[] | null {
     paths.push(match[1].replace(/\\/g, path.sep));
   }
   return paths;
+}
+
+/** Parses the NestedProjects GlobalSection of an .sln file (child guid → parent guid). */
+export function parseSlnNested(content: string): Map<string, string> {
+  const nested = new Map<string, string>();
+  const section = /GlobalSection\(NestedProjects\)[^=]*=\s*\w+\s*([\s\S]*?)EndGlobalSection/.exec(content);
+  if (!section) {
+    return nested;
+  }
+  const lineRe = /\{([0-9A-Fa-f-]+)\}\s*=\s*\{([0-9A-Fa-f-]+)\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = lineRe.exec(section[1])) !== null) {
+    nested.set(match[1].toUpperCase(), match[2].toUpperCase());
+  }
+  return nested;
+}
+
+/**
+ * Builds the folder/project hierarchy of an .slnx file (projects nested inside
+ * Folder elements). Folder paths act as pseudo-guids for identity.
+ */
+export function parseSlnxDetailed(content: string): SlnHierarchyNode[] | null {
+  if (!/<Solution/i.test(content)) {
+    return null;
+  }
+  let doc: unknown;
+  try {
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', isArray: () => true });
+    doc = parser.parse(content);
+  } catch {
+    return null;
+  }
+  const solution = (doc as { Solution?: unknown }).Solution;
+  if (!Array.isArray(solution) || solution.length === 0) {
+    return [];
+  }
+  const readAttr = (element: Record<string, unknown>, name: string): string | undefined => {
+    const value = element[name];
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+      return value[0];
+    }
+    return undefined;
+  };
+  const convert = (element: Record<string, unknown>): SlnHierarchyNode[] => {
+    const result: SlnHierarchyNode[] = [];
+    for (const [tag, value] of Object.entries(element)) {
+      if (tag === '#text' || !Array.isArray(value)) {
+        continue;
+      }
+      for (const raw of value) {
+        if (!raw || typeof raw !== 'object') {
+          continue;
+        }
+        const child = raw as Record<string, unknown>;
+        const rawPath = readAttr(child, 'Path');
+        if (tag === 'Project' && rawPath) {
+          const projectPath = rawPath.replace(/\\/g, path.sep);
+          const name = path.basename(projectPath, path.extname(projectPath));
+          result.push({
+            label: name,
+            project: { name, relativePath: projectPath, typeGuid: '', projectGuid: '', isSolutionFolder: false },
+            children: [],
+          });
+        } else if (tag === 'Folder') {
+          const folderPath = rawPath ?? readAttr(child, 'Name');
+          if (folderPath) {
+            const segments = folderPath.split(/[\\/]/).filter((segment) => segment.length > 0);
+            result.push({
+              label: segments[segments.length - 1] ?? folderPath,
+              folderGuid: folderPath,
+              children: convert(child),
+            });
+          }
+        }
+      }
+    }
+    return result;
+  };
+  const sortNodes = (nodes: SlnHierarchyNode[]): SlnHierarchyNode[] => {
+    nodes.sort((a, b) => a.label.localeCompare(b.label));
+    for (const node of nodes) {
+      sortNodes(node.children);
+    }
+    return nodes;
+  };
+  return sortNodes(convert(solution[0] as Record<string, unknown>));
+}
+
+/** Arranges .sln projects and solution folders into a tree using the nesting map. */
+export function buildSolutionHierarchy(
+  projects: SlnProject[],
+  nested: Map<string, string>,
+): SlnHierarchyNode[] {
+  const roots: SlnHierarchyNode[] = [];
+  const folderNodes = new Map<string, SlnHierarchyNode>();
+  for (const project of projects) {
+    if (project.isSolutionFolder) {
+      folderNodes.set(project.projectGuid, { label: project.name, folderGuid: project.projectGuid, children: [] });
+    }
+  }
+  const placed = new Set<string>();
+  const attachFolder = (guid: string, trail: Set<string>): SlnHierarchyNode | null => {
+    const folder = folderNodes.get(guid);
+    if (!folder) {
+      return null;
+    }
+    if (placed.has(guid)) {
+      return folder;
+    }
+    if (trail.has(guid)) {
+      return null;
+    }
+    const parentGuid = nested.get(guid);
+    const parent = parentGuid ? attachFolder(parentGuid, new Set(trail).add(guid)) : null;
+    if (parent) {
+      parent.children.push(folder);
+    } else {
+      roots.push(folder);
+    }
+    placed.add(guid);
+    return folder;
+  };
+
+  for (const project of projects) {
+    if (project.isSolutionFolder) {
+      attachFolder(project.projectGuid, new Set());
+      continue;
+    }
+    const node: SlnHierarchyNode = { label: project.name, project, children: [] };
+    const parentGuid = nested.get(project.projectGuid);
+    const parent = parentGuid ? attachFolder(parentGuid, new Set()) : null;
+    if (parent) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  const sortNodes = (nodes: SlnHierarchyNode[]): SlnHierarchyNode[] => {
+    nodes.sort((a, b) => a.label.localeCompare(b.label));
+    for (const node of nodes) {
+      sortNodes(node.children);
+    }
+    return nodes;
+  };
+  return sortNodes(roots);
 }
 
 // ── Project (csproj) parsing ──────────────────────────────────────────────────

@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ProjectEntry } from './types';
+import type { ProjectEntry, ProjectTarget } from './types';
 import {
+  discoverProjects,
   invalidateCsprojCache,
   pickProjectWithCurrentFile,
   resolveDotnetWorkspace,
@@ -25,39 +26,52 @@ async function spawnSln(args: string[], root: string, successMessage: string): P
   }
 }
 
-export async function addProjectReference(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
+export async function addProjectReference(target?: ProjectTarget): Promise<void> {
+  let root: string;
+  let targetProject: ProjectEntry;
+  let candidates: ProjectEntry[];
+  if (target) {
+    root = target.root;
+    targetProject = target.entry;
+    const targetKey = normalizePathKey(targetProject.csprojPath);
+    candidates = (await discoverProjects(root, target.slnPath ?? null)).filter(
+      (p) => normalizePathKey(p.csprojPath) !== targetKey,
+    );
+  } else {
+    const ws = await resolveDotnetWorkspace();
+    if (!ws) {
+      return;
+    }
+    const picked = await pickProjectWithCurrentFile(ws.projects, '.NET: Add Project Reference (to…)', {
+      commandKey: 'refAdd',
+    });
+    if (!picked) {
+      return;
+    }
+    root = ws.root;
+    targetProject = picked;
+    const targetKey = normalizePathKey(picked.csprojPath);
+    candidates = ws.projects.filter((p) => normalizePathKey(p.csprojPath) !== targetKey);
   }
-  const target = await pickProjectWithCurrentFile(ws.projects, '.NET: Add Project Reference (to…)', {
-    commandKey: 'refAdd',
-  });
-  if (!target) {
-    return;
-  }
-
-  const targetKey = normalizePathKey(target.csprojPath);
-  const others = ws.projects.filter((p) => normalizePathKey(p.csprojPath) !== targetKey);
-  if (others.length === 0) {
+  if (candidates.length === 0) {
     vscode.window.showInformationMessage('Only one project in the workspace — nothing to reference.');
     return;
   }
 
-  const items = others.map((p) => {
+  const items = candidates.map((p) => {
     const referencesTarget = (p.csproj?.projectReferences ?? []).some(
-      (r) => normalizePathKey(resolveReference(p.csprojPath, r)) === targetKey,
+      (r) => normalizePathKey(resolveReference(p.csprojPath, r)) === normalizePathKey(targetProject.csprojPath),
     );
     return {
       label: p.name,
-      description: `${p.csproj?.targetFrameworks.join(', ') ?? '—'}  ·  ${path.relative(ws.root, p.csprojPath)}`,
+      description: `${p.csproj?.targetFrameworks.join(', ') ?? '—'}  ·  ${path.relative(root, p.csprojPath)}`,
       entry: p,
       disabled: referencesTarget,
     };
   });
   const quickPick = vscode.window.createQuickPick<(typeof items)[number]>();
   quickPick.canSelectMany = true;
-  quickPick.title = `Add project references to ${target.name}`;
+  quickPick.title = `Add project references to ${targetProject.name}`;
   quickPick.placeholder = 'Select projects to reference';
   quickPick.items = items;
   const selected = await new Promise<Array<(typeof items)[number]>>((resolve) => {
@@ -74,38 +88,57 @@ export async function addProjectReference(): Promise<void> {
   }
 
   await spawnSln(
-    ['add', target.csprojPath, 'reference', ...selected.map((s) => s.entry.csprojPath)],
-    ws.root,
-    `Added ${selected.length} reference${selected.length !== 1 ? 's' : ''} to ${target.name}.`,
+    ['add', targetProject.csprojPath, 'reference', ...selected.map((s) => s.entry.csprojPath)],
+    root,
+    `Added ${selected.length} reference${selected.length !== 1 ? 's' : ''} to ${targetProject.name}.`,
   );
 }
 
-export async function removeProjectReference(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
+export async function removeProjectReference(target?: ProjectTarget, refPath?: string): Promise<void> {
+  let root: string;
+  let project: ProjectEntry;
+  if (target) {
+    root = target.root;
+    project = target.entry;
+  } else {
+    const ws = await resolveDotnetWorkspace();
+    if (!ws) {
+      return;
+    }
+    const picked = await pickProjectWithCurrentFile(ws.projects, '.NET: Remove Project Reference (from…)', {
+      commandKey: 'refRemove',
+    });
+    if (!picked) {
+      return;
+    }
+    root = ws.root;
+    project = picked;
+  }
+
+  if (refPath) {
+    await spawnSln(
+      ['remove', project.csprojPath, 'reference', refPath],
+      root,
+      `Removed reference ${path.basename(refPath, path.extname(refPath))} from ${project.name}.`,
+    );
     return;
   }
-  const target = await pickProjectWithCurrentFile(ws.projects, '.NET: Remove Project Reference (from…)', {
-    commandKey: 'refRemove',
-  });
-  if (!target) {
-    return;
-  }
-  const references = (target.csproj?.projectReferences ?? []).map((r) => resolveReference(target.csprojPath, r));
+
+  const references = (project.csproj?.projectReferences ?? []).map((r) => resolveReference(project.csprojPath, r));
   if (references.length === 0) {
-    vscode.window.showInformationMessage(`${target.name} has no project references.`);
+    vscode.window.showInformationMessage(`${project.name} has no project references.`);
     return;
   }
 
   const items = references.map((r) => ({
     label: path.basename(path.dirname(r)) || path.basename(r),
-    description: path.relative(ws.root, r),
+    description: path.relative(root, r),
     picked: false,
     refPath: r,
   }));
   const quickPick = vscode.window.createQuickPick<(typeof items)[number]>();
   quickPick.canSelectMany = true;
-  quickPick.title = `Remove project references from ${target.name}`;
+  quickPick.title = `Remove project references from ${project.name}`;
   quickPick.placeholder = 'Select references to remove';
   quickPick.items = items;
   const selected = await new Promise<Array<(typeof items)[number]>>((resolve) => {
@@ -122,9 +155,9 @@ export async function removeProjectReference(): Promise<void> {
   }
 
   await spawnSln(
-    ['remove', target.csprojPath, 'reference', ...selected.map((s) => s.refPath)],
-    ws.root,
-    `Removed ${selected.length} reference${selected.length !== 1 ? 's' : ''} from ${target.name}.`,
+    ['remove', project.csprojPath, 'reference', ...selected.map((s) => s.refPath)],
+    root,
+    `Removed ${selected.length} reference${selected.length !== 1 ? 's' : ''} from ${project.name}.`,
   );
 }
 

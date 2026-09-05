@@ -24,7 +24,10 @@ import {
   parseRuntimeList,
   parseSdkList,
   parseSln,
+  parseSlnNested,
   parseSlnx,
+  parseSlnxDetailed,
+  buildSolutionHierarchy,
   quoteShellPath,
   sourceBaseForTestFile,
   testFileCandidates,
@@ -304,6 +307,138 @@ describe('parseSlnx', () => {
 
   it('returns null for non-slnx content', () => {
     assert.strictEqual(parseSlnx('<other></other>'), null);
+  });
+});
+
+const SLN_NESTED_SAMPLE = `Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "App", "src\\App\\App.csproj", "{AAAAAAAA-0000-0000-0000-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "App.Core", "src\\App.Core\\App.Core.csproj", "{AAAAAAAA-0000-0000-0000-000000000002}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "App.Tests", "tests\\App.Tests\\App.Tests.csproj", "{AAAAAAAA-0000-0000-0000-000000000003}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{BBBBBBBB-0000-0000-0000-000000000001}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{BBBBBBBB-0000-0000-0000-000000000002}"
+EndProject
+Global
+	GlobalSection(NestedProjects) = preSolution
+		{AAAAAAAA-0000-0000-0000-000000000001} = {BBBBBBBB-0000-0000-0000-000000000001}
+		{AAAAAAAA-0000-0000-0000-000000000002} = {BBBBBBBB-0000-0000-0000-000000000001}
+		{AAAAAAAA-0000-0000-0000-000000000003} = {BBBBBBBB-0000-0000-0000-000000000002}
+		{BBBBBBBB-0000-0000-0000-000000000002} = {BBBBBBBB-0000-0000-0000-000000000003}
+	EndGlobalSection
+EndGlobal
+`;
+
+describe('parseSlnNested', () => {
+  it('parses the NestedProjects section', () => {
+    const nested = parseSlnNested(SLN_NESTED_SAMPLE);
+    assert.strictEqual(nested.size, 4);
+    assert.strictEqual(
+      nested.get('AAAAAAAA-0000-0000-0000-000000000001'),
+      'BBBBBBBB-0000-0000-0000-000000000001',
+    );
+  });
+
+  it('returns an empty map without the section', () => {
+    assert.strictEqual(parseSlnNested(SLN_SAMPLE).size, 0);
+  });
+});
+
+describe('buildSolutionHierarchy', () => {
+  const projects = parseSln(SLN_NESTED_SAMPLE)!;
+  const nested = parseSlnNested(SLN_NESTED_SAMPLE);
+  const roots = buildSolutionHierarchy(projects, nested);
+
+  it('nests projects under their solution folders', () => {
+    const src = roots.find((node) => node.label === 'src');
+    const tests = roots.find((node) => node.label === 'tests');
+    assert.ok(src && tests);
+    assert.deepStrictEqual(
+      src.children.map((node) => node.label).sort(),
+      ['App', 'App.Core'],
+    );
+    assert.deepStrictEqual(tests.children.map((node) => node.label), ['App.Tests']);
+  });
+
+  it('sorts children alphabetically with folders and projects interleaved', () => {
+    assert.deepStrictEqual(
+      roots.map((node) => node.label),
+      ['src', 'tests'],
+    );
+  });
+
+  it('drops orphaned nesting parents to the root', () => {
+    // tests folder is nested under App.Tests guid (cyclic) — it must still appear exactly once
+    const allFolderNodes: string[] = [];
+    const walk = (nodes: typeof roots): void => {
+      for (const node of nodes) {
+        if (!node.project) {
+          allFolderNodes.push(node.label);
+        }
+        walk(node.children);
+      }
+    };
+    walk(roots);
+    assert.strictEqual(allFolderNodes.filter((label) => label === 'tests').length, 1);
+  });
+
+  it('keeps projects at the root without nesting info', () => {
+    const flat = buildSolutionHierarchy(parseSln(SLN_SAMPLE)!, new Map());
+    assert.deepStrictEqual(
+      flat.map((node) => node.label).sort(),
+      ['MyApp', 'MyApp.Core', 'solution-items'],
+    );
+  });
+});
+
+const SLNX_DETAILED_SAMPLE = `<?xml version="1.0" encoding="utf-8"?>
+<Solution>
+  <Project Path="src\\Root\\Root.csproj" />
+  <Folder Path="/src/Libraries">
+    <Project Path="src\\Lib\\Lib.csproj" />
+    <Folder Name="nested">
+      <Project Path="src\\Deep\\Deep.csproj" />
+    </Folder>
+  </Folder>
+</Solution>
+`;
+
+describe('parseSlnxDetailed', () => {
+  const hierarchy = parseSlnxDetailed(SLNX_DETAILED_SAMPLE)!;
+  const libraries = hierarchy.find((node) => node.label === 'Libraries')!;
+
+  it('keeps root projects at the root', () => {
+    assert.strictEqual(hierarchy.length, 2);
+    assert.deepStrictEqual(
+      hierarchy.map((node) => node.label).sort(),
+      ['Libraries', 'Root'],
+    );
+    const root = hierarchy.find((node) => node.label === 'Root')!;
+    assert.strictEqual(root.project?.relativePath, ['src', 'Root', 'Root.csproj'].join(path.sep));
+  });
+
+  it('nests folders and projects', () => {
+    assert.deepStrictEqual(
+      libraries.children.map((node) => node.label),
+      ['Lib', 'nested'],
+    );
+    assert.strictEqual(libraries.children[0].project?.relativePath, ['src', 'Lib', 'Lib.csproj'].join(path.sep));
+    assert.deepStrictEqual(
+      libraries.children[1].children.map((node) => node.label),
+      ['Deep'],
+    );
+  });
+
+  it('accepts Name as a fallback for Folder identity', () => {
+    const nested = libraries.children[1];
+    assert.strictEqual(nested.label, 'nested');
+    assert.strictEqual(nested.folderGuid, 'nested');
+  });
+
+  it('returns null for non-slnx content', () => {
+    assert.strictEqual(parseSlnxDetailed('<other></other>'), null);
   });
 });
 

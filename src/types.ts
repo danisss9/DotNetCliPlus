@@ -21,6 +21,30 @@ export interface SlnProject {
   isSolutionFolder: boolean;
 }
 
+/** Hierarchical node built from a solution's projects + nesting information. */
+export interface SlnHierarchyNode {
+  label: string;
+  /** Present on solution-folder nodes. */
+  folderGuid?: string;
+  /** Present on project nodes. */
+  project?: SlnProject;
+  children: SlnHierarchyNode[];
+}
+
+/** Pre-resolved solution target (Solution Explorer tree view). */
+export interface SolutionTarget {
+  root: string;
+  slnPath: string;
+}
+
+/** Pre-resolved project target (Solution Explorer tree view). */
+export interface ProjectTarget {
+  root: string;
+  entry: ProjectEntry;
+  /** Solution file the project was reached through, when known. */
+  slnPath?: string;
+}
+
 export interface SlnInfo {
   filePath: string;
   directory: string;

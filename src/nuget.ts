@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import type { DotnetWorkspace } from './utils';
-import type { NuGetSearchResult, ProjectEntry, ProjectOutdatedPackages } from './types';
+import type { NuGetSearchResult, ProjectEntry, ProjectOutdatedPackages, ProjectTarget } from './types';
 import {
   extractJsonObject,
   parsePackageListOutdatedJson,
@@ -10,16 +9,25 @@ import {
 import { invalidateCsprojCache, resolveDotnetWorkspace, spawnDotnet, pickProjectWithCurrentFile } from './utils';
 import { nugetOutput } from './state';
 
-export async function manageNuGetPackages(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
-  }
-  const project = await pickProjectWithCurrentFile(ws.projects, 'NuGet: Manage Packages', {
-    commandKey: 'nuget',
-  });
-  if (!project) {
-    return;
+export async function manageNuGetPackages(target?: ProjectTarget): Promise<void> {
+  let root: string;
+  let project: ProjectEntry;
+  if (target) {
+    root = target.root;
+    project = target.entry;
+  } else {
+    const ws = await resolveDotnetWorkspace();
+    if (!ws) {
+      return;
+    }
+    const picked = await pickProjectWithCurrentFile(ws.projects, 'NuGet: Manage Packages', {
+      commandKey: 'nuget',
+    });
+    if (!picked) {
+      return;
+    }
+    root = ws.root;
+    project = picked;
   }
 
   const actions: Array<{ label: string; description: string; action: string }> = [
@@ -37,13 +45,13 @@ export async function manageNuGetPackages(): Promise<void> {
   }
   switch (picked.action) {
     case 'add':
-      await addPackage(ws, project);
+      await addPackage(root, project);
       return;
     case 'update':
-      await updateOutdatedPackages(ws, project);
+      await updateOutdatedPackages(root, project);
       return;
     case 'remove':
-      await removePackage(ws, project);
+      await removePackage(root, project);
       return;
     case 'list':
       await listPackages(project);
@@ -88,7 +96,7 @@ export async function listOutdatedPackages(targetPath: string, root: string): Pr
   }
 }
 
-async function addPackage(ws: DotnetWorkspace, project: ProjectEntry): Promise<void> {
+async function addPackage(root: string, project: ProjectEntry): Promise<void> {
   const term = await vscode.window.showInputBox({
     prompt: 'Search NuGet packages (or enter an exact package id)',
     placeHolder: 'e.g. Newtonsoft.Json',
@@ -102,7 +110,7 @@ async function addPackage(ws: DotnetWorkspace, project: ProjectEntry): Promise<v
 
   const results = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Searching NuGet for "${term}"…`, cancellable: false },
-    async () => packageSearch(ws.root, term.trim()),
+    async () => packageSearch(root, term.trim()),
   );
 
   if (results.length > 0) {
@@ -164,11 +172,11 @@ async function addPackage(ws: DotnetWorkspace, project: ProjectEntry): Promise<v
     version = versionPick.version;
   }
 
-  await addPackageToProject(ws, project, id, version);
+  await addPackageToProject(root, project, id, version);
 }
 
 export async function addPackageToProject(
-  ws: DotnetWorkspace,
+  root: string,
   project: ProjectEntry,
   id: string,
   version?: string,
@@ -181,7 +189,7 @@ export async function addPackageToProject(
   const args = ['add', project.csprojPath, 'package', id, ...(version ? ['--version', version] : [])];
   const result = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Adding ${id} to ${project.name}…`, cancellable: false },
-    async () => spawnDotnet(args, ws.root, { channel: nugetOutput, reveal: true }),
+    async () => spawnDotnet(args, root, { channel: nugetOutput, reveal: true }),
   );
   if (result.exitCode !== 0) {
     vscode.window.showErrorMessage(
@@ -194,14 +202,14 @@ export async function addPackageToProject(
   return true;
 }
 
-async function updateOutdatedPackages(ws: DotnetWorkspace, project: ProjectEntry): Promise<void> {
+async function updateOutdatedPackages(root: string, project: ProjectEntry): Promise<void> {
   const outdated = await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: `Checking outdated packages for ${project.name}…`,
       cancellable: false,
     },
-    async () => listOutdatedPackages(project.csprojPath, ws.root),
+    async () => listOutdatedPackages(project.csprojPath, root),
   );
   const packages = outdated.find((o) => o.projectPath === project.csprojPath)?.packages ?? [];
   if (packages.length === 0) {
@@ -247,7 +255,7 @@ async function updateOutdatedPackages(ws: DotnetWorkspace, project: ProjectEntry
           message: `${item.pkg.id} (${i + 1}/${selected.length})`,
           increment: (1 / selected.length) * 100,
         });
-        const ok = await addPackageToProject(ws, project, item.pkg.id, item.pkg.latest);
+        const ok = await addPackageToProject(root, project, item.pkg.id, item.pkg.latest);
         if (ok) {
           updated++;
         }
@@ -259,7 +267,7 @@ async function updateOutdatedPackages(ws: DotnetWorkspace, project: ProjectEntry
   }
 }
 
-async function removePackage(ws: DotnetWorkspace, project: ProjectEntry): Promise<void> {
+async function removePackage(root: string, project: ProjectEntry): Promise<void> {
   const references = project.csproj?.packageReferences ?? [];
   if (references.length === 0) {
     vscode.window.showInformationMessage(`${project.name} has no package references.`);
@@ -276,7 +284,7 @@ async function removePackage(ws: DotnetWorkspace, project: ProjectEntry): Promis
   if (!picked) {
     return;
   }
-  const result = await spawnDotnet(['remove', project.csprojPath, 'package', picked.label], ws.root, {
+  const result = await spawnDotnet(['remove', project.csprojPath, 'package', picked.label], root, {
     channel: nugetOutput,
     reveal: true,
   });

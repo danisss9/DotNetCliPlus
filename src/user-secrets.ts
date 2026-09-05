@@ -2,19 +2,28 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { ProjectEntry } from './types';
+import type { ProjectEntry, ProjectTarget } from './types';
 import { invalidateCsprojCache, loadCsproj, pickProjectWithCurrentFile, resolveDotnetWorkspace, spawnDotnet } from './utils';
 
-export async function manageUserSecrets(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
-  }
-  const project = await pickProjectWithCurrentFile(ws.projects, '.NET: User Secrets', {
-    commandKey: 'secrets',
-  });
-  if (!project) {
-    return;
+export async function manageUserSecrets(target?: ProjectTarget): Promise<void> {
+  let root: string;
+  let project: ProjectEntry;
+  if (target) {
+    root = target.root;
+    project = target.entry;
+  } else {
+    const ws = await resolveDotnetWorkspace();
+    if (!ws) {
+      return;
+    }
+    const picked = await pickProjectWithCurrentFile(ws.projects, '.NET: User Secrets', {
+      commandKey: 'secrets',
+    });
+    if (!picked) {
+      return;
+    }
+    root = ws.root;
+    project = picked;
   }
 
   const actions: Array<{ label: string; description: string; action: string }> = [
@@ -34,19 +43,19 @@ export async function manageUserSecrets(): Promise<void> {
   }
   switch (picked.action) {
     case 'init':
-      await initSecrets(ws.root, project);
+      await initSecrets(root, project);
       return;
     case 'set':
-      await setSecret(ws.root, project);
+      await setSecret(root, project);
       return;
     case 'list':
-      await listSecrets(ws.root, project);
+      await listSecrets(root, project);
       return;
     case 'remove':
-      await removeSecret(ws.root, project);
+      await removeSecret(root, project);
       return;
     case 'clear':
-      await clearSecrets(ws.root, project);
+      await clearSecrets(root, project);
       return;
     case 'open':
       await openSecretsFile(project);

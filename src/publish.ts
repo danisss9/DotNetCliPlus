@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import type { ProjectEntry, ProjectTarget } from './types';
 import {
   loadCsproj,
   pickProjectWithCurrentFile,
@@ -18,16 +19,25 @@ const COMMON_RIDS = [
   'osx-arm64',
 ];
 
-export async function publishProject(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
-  }
-  const project = await pickProjectWithCurrentFile(ws.projects, '.NET: Publish / Pack', {
-    commandKey: 'publish',
-  });
-  if (!project) {
-    return;
+export async function publishProject(target?: ProjectTarget): Promise<void> {
+  let root: string;
+  let project: ProjectEntry;
+  if (target) {
+    root = target.root;
+    project = target.entry;
+  } else {
+    const ws = await resolveDotnetWorkspace();
+    if (!ws) {
+      return;
+    }
+    const picked = await pickProjectWithCurrentFile(ws.projects, '.NET: Publish / Pack', {
+      commandKey: 'publish',
+    });
+    if (!picked) {
+      return;
+    }
+    root = ws.root;
+    project = picked;
   }
 
   const actions: Array<{ label: string; description: string; action: string }> = [
@@ -42,10 +52,10 @@ export async function publishProject(): Promise<void> {
     return;
   }
   if (picked.action === 'pack') {
-    await packProject(ws.root, project);
+    await packProject(root, project);
     return;
   }
-  await publishFlow(ws.root, project.name, project.csprojPath);
+  await publishFlow(root, project.name, project.csprojPath);
 }
 
 async function publishFlow(root: string, projectName: string, csprojPath: string): Promise<void> {

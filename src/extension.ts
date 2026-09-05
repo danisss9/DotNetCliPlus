@@ -41,6 +41,12 @@ import { manageConfigs } from './config-manager';
 import { publishProject } from './publish';
 import { activateTestExplorer, refreshAllTests } from './testing/test-controller';
 import { setupRestoreCheck, teardownRestoreCheck, teardownAllRestoreChecks } from './restore-check';
+import {
+  SolutionExplorerProvider,
+  asBuildTargetArg,
+  asProjectTarget,
+  asRefPath,
+} from './solution-explorer';
 
 const NEW_TEMPLATE_COMMANDS: Array<{ short: string; label: string }> = [
   { short: 'console', label: 'Console App' },
@@ -106,30 +112,30 @@ export function activate(context: vscode.ExtensionContext) {
         setTrackedTerminalFinished(event.terminal, event.exitCode);
       }
     }),
-    vscode.commands.registerCommand('dotnet-cli-plus.runProject', () => runProject()),
-    vscode.commands.registerCommand('dotnet-cli-plus.debugProject', () => debugProject()),
-    vscode.commands.registerCommand('dotnet-cli-plus.watchProject', () => watchProject()),
-    vscode.commands.registerCommand('dotnet-cli-plus.buildTarget', () => buildTarget(false)),
-    vscode.commands.registerCommand('dotnet-cli-plus.rebuildTarget', () => buildTarget(true)),
-    vscode.commands.registerCommand('dotnet-cli-plus.cleanTarget', () => cleanTarget()),
-    vscode.commands.registerCommand('dotnet-cli-plus.restoreSolution', () => restorePackages()),
-    vscode.commands.registerCommand('dotnet-cli-plus.testTarget', () => testProject()),
-    vscode.commands.registerCommand('dotnet-cli-plus.formatProject', () => formatProject()),
+    vscode.commands.registerCommand('dotnet-cli-plus.runProject', (node?: unknown) => runProject(asProjectTarget(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.debugProject', (node?: unknown) => debugProject(asProjectTarget(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.watchProject', (node?: unknown) => watchProject(asProjectTarget(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.buildTarget', (node?: unknown) => buildTarget(false, asBuildTargetArg(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.rebuildTarget', (node?: unknown) => buildTarget(true, asBuildTargetArg(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.cleanTarget', (node?: unknown) => cleanTarget(asBuildTargetArg(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.restoreSolution', (node?: unknown) => restorePackages(asBuildTargetArg(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.testTarget', (node?: unknown) => testProject(asBuildTargetArg(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.formatProject', (node?: unknown) => formatProject(asBuildTargetArg(node))),
     vscode.commands.registerCommand('dotnet-cli-plus.newProject', () => runNewProjectWizard()),
-    vscode.commands.registerCommand('dotnet-cli-plus.manageNuGetPackages', () => manageNuGetPackages()),
+    vscode.commands.registerCommand('dotnet-cli-plus.manageNuGetPackages', (node?: unknown) => manageNuGetPackages(asProjectTarget(node))),
     vscode.commands.registerCommand('dotnet-cli-plus.updatePackages', () => showPackageUpdates()),
     vscode.commands.registerCommand('dotnet-cli-plus.manageSolution', () => manageSolution()),
     vscode.commands.registerCommand('dotnet-cli-plus.checkBuildErrors', () => checkBuildErrors()),
     vscode.commands.registerCommand('dotnet-cli-plus.runLaunchProfile', () => runLaunchProfile()),
-    vscode.commands.registerCommand('dotnet-cli-plus.manageUserSecrets', () => manageUserSecrets()),
+    vscode.commands.registerCommand('dotnet-cli-plus.manageUserSecrets', (node?: unknown) => manageUserSecrets(asProjectTarget(node))),
     vscode.commands.registerCommand('dotnet-cli-plus.manageSdks', () => manageSdks()),
     vscode.commands.registerCommand('dotnet-cli-plus.setupNuGetAuth', () => setupNuGetAuth()),
     vscode.commands.registerCommand('dotnet-cli-plus.manageConfigs', () => manageConfigs()),
-    vscode.commands.registerCommand('dotnet-cli-plus.publishProject', () => publishProject()),
+    vscode.commands.registerCommand('dotnet-cli-plus.publishProject', (node?: unknown) => publishProject(asProjectTarget(node))),
     vscode.commands.registerCommand('dotnet-cli-plus.switchFile', () => switchFile()),
     vscode.commands.registerCommand('dotnet-cli-plus.clearTerminals', () => clearFinishedTerminals()),
-    vscode.commands.registerCommand('dotnet-cli-plus.addProjectReference', () => addProjectReference()),
-    vscode.commands.registerCommand('dotnet-cli-plus.removeProjectReference', () => removeProjectReference()),
+    vscode.commands.registerCommand('dotnet-cli-plus.addProjectReference', (node?: unknown) => addProjectReference(asProjectTarget(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.removeProjectReference', (node?: unknown) => removeProjectReference(asProjectTarget(node), asRefPath(node))),
     vscode.commands.registerCommand('dotnet-cli-plus.listProjectReferences', () => listProjectReferences()),
     vscode.commands.registerCommand('dotnet-cli-plus.refreshTests', () => refreshAllTests()),
     vscode.commands.registerCommand('dotnet-cli-plus.openCommandPalette', () =>
@@ -144,6 +150,18 @@ export function activate(context: vscode.ExtensionContext) {
   statusBarItem.command = 'dotnet-cli-plus.openCommandPalette';
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
+
+  const solutionExplorerProvider = new SolutionExplorerProvider();
+  context.subscriptions.push(
+    solutionExplorerProvider,
+    vscode.window.createTreeView('dotnet-cli-plus.solutionExplorer', {
+      treeDataProvider: solutionExplorerProvider,
+      showCollapseAll: true,
+    }),
+    vscode.commands.registerCommand('dotnet-cli-plus.solutionExplorer.refresh', () =>
+      solutionExplorerProvider.refresh(),
+    ),
+  );
 
   const projectFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.{sln,slnx,csproj,fsproj,vbproj}');
   context.subscriptions.push(

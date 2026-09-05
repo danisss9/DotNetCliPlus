@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse as jsoncParse, modify as jsoncModify, applyEdits as jsoncApplyEdits } from 'jsonc-parser';
+import type { ProjectEntry, ProjectTarget } from './types';
 import { buildProgramPath, configFlag } from './pure-utils';
 import { resolveDotnetWorkspace, spawnDotnet, pickProjectWithCurrentFile } from './utils';
 import { loadLaunchProfiles, pickProfile } from './launch-profiles';
@@ -12,18 +13,33 @@ interface CoreclrConfig extends vscode.DebugConfiguration {
   cwd: string;
 }
 
-export async function debugProject(): Promise<void> {
-  const ws = await resolveDotnetWorkspace();
-  if (!ws) {
-    return;
+export async function debugProject(target?: ProjectTarget): Promise<void> {
+  let folder: vscode.WorkspaceFolder;
+  let project: ProjectEntry;
+  if (target) {
+    const resolvedFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(target.root));
+    if (!resolvedFolder) {
+      vscode.window.showErrorMessage('The workspace folder for this project is no longer open.');
+      return;
+    }
+    folder = resolvedFolder;
+    project = target.entry;
+  } else {
+    const ws = await resolveDotnetWorkspace();
+    if (!ws) {
+      return;
+    }
+    const picked = await pickProjectWithCurrentFile(ws.projects, '.NET: Debug Project', {
+      runnableOnly: true,
+      commandKey: 'debug',
+    });
+    if (!picked) {
+      return;
+    }
+    folder = ws.folder;
+    project = picked;
   }
-  const project = await pickProjectWithCurrentFile(ws.projects, '.NET: Debug Project', {
-    runnableOnly: true,
-    commandKey: 'debug',
-  });
-  if (!project) {
-    return;
-  }
+  const root = folder.uri.fsPath;
 
   const csproj = project.csproj;
   if (!csproj || csproj.targetFrameworks.length === 0) {
@@ -70,7 +86,7 @@ export async function debugProject(): Promise<void> {
       title: `Building ${project.name}…`,
       cancellable: false,
     },
-    async () => spawnDotnet(['build', project.csprojPath, ...configFlag(configuration), '-v', 'minimal'], ws.root),
+    async () => spawnDotnet(['build', project.csprojPath, ...configFlag(configuration), '-v', 'minimal'], root),
   );
   if (buildResult.exitCode !== 0) {
     const action = await vscode.window.showErrorMessage(
@@ -104,7 +120,7 @@ export async function debugProject(): Promise<void> {
     ...(profileEnv ? { env: profileEnv } : {}),
   };
 
-  const launchJsonPath = path.join(ws.folder.uri.fsPath, '.vscode', 'launch.json');
+  const launchJsonPath = path.join(root, '.vscode', 'launch.json');
   try {
     await ensureLaunchConfig(launchJsonPath, debugConfig);
   } catch (err) {
@@ -112,7 +128,7 @@ export async function debugProject(): Promise<void> {
     return;
   }
 
-  const started = await vscode.debug.startDebugging(ws.folder, configName);
+  const started = await vscode.debug.startDebugging(folder, configName);
   if (!started) {
     vscode.window.showErrorMessage(
       'Failed to start the debug session. Is the C# extension (ms-dotnettools.csharp) installed?',

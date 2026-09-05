@@ -220,6 +220,26 @@
       {
         "command": "dotnet-cli-plus.new.sln",
         "title": "Solution"
+      },
+      {
+        "command": "dotnet-cli-plus.solutionExplorer.refresh",
+        "title": ".NET: Refresh Solution Explorer",
+        "category": "DotNet CLI Plus",
+        "icon": "$(refresh)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "dotnet-cli-plus.solutionExplorer",
+          "name": ".NET Solution Explorer"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "dotnet-cli-plus.solutionExplorer",
+        "contents": "No .NET solutions or projects found in this workspace.\n[Create a New Project…](command:dotnet-cli-plus.newProject)\n[Create a New Solution](command:dotnet-cli-plus.new.sln)"
       }
     ],
     "keybindings": [
@@ -387,6 +407,113 @@
           "command": "dotnet-cli-plus.new.sln",
           "group": "5_files@5"
         }
+      ],
+      "view/title": [
+      {
+        "command": "dotnet-cli-plus.solutionExplorer.refresh",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer'",
+        "group": "navigation@1"
+      },
+      {
+        "command": "dotnet-cli-plus.manageSolution",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer'"
+      },
+      {
+        "command": "dotnet-cli-plus.newProject",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer'"
+      }
+    ],
+    "view/item/context": [
+      {
+        "command": "dotnet-cli-plus.restoreSolution",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
+        "group": "1_solution@1"
+      },
+      {
+        "command": "dotnet-cli-plus.buildTarget",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
+        "group": "1_solution@2"
+      },
+      {
+        "command": "dotnet-cli-plus.manageSolution",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
+        "group": "1_solution@3"
+      },
+      {
+        "command": "dotnet-cli-plus.runProject",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
+        "group": "2_run@1"
+      },
+      {
+        "command": "dotnet-cli-plus.debugProject",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
+        "group": "2_run@2"
+      },
+      {
+        "command": "dotnet-cli-plus.watchProject",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+        "group": "2_run@3"
+      },
+      {
+        "command": "dotnet-cli-plus.buildTarget",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+        "group": "3_build@1"
+      },
+      {
+        "command": "dotnet-cli-plus.cleanTarget",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+        "group": "3_build@2"
+      },
+      {
+        "command": "dotnet-cli-plus.testTarget",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\btest\\b/",
+        "group": "3_build@3"
+      },
+      {
+        "command": "dotnet-cli-plus.formatProject",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+        "group": "3_build@4"
+      },
+      {
+        "command": "dotnet-cli-plus.manageNuGetPackages",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+        "group": "4_manage@1"
+      },
+      {
+        "command": "dotnet-cli-plus.addProjectReference",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+        "group": "4_manage@2"
+      },
+      {
+        "command": "dotnet-cli-plus.manageUserSecrets",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+        "group": "4_manage@3"
+      },
+      {
+        "command": "dotnet-cli-plus.publishProject",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+        "group": "4_manage@4"
+      },
+      {
+        "command": "dotnet-cli-plus.removeProjectReference",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetProjectRef'",
+        "group": "5_ref@1"
+      },
+      {
+        "command": "dotnet-cli-plus.runProject",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
+        "group": "inline@1"
+      },
+      {
+        "command": "dotnet-cli-plus.testTarget",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\btest\\b/",
+        "group": "inline@2"
+      },
+      {
+        "command": "dotnet-cli-plus.removeProjectReference",
+        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetProjectRef'",
+        "group": "inline@3"
+      }
       ]
     },
     "configuration": {
