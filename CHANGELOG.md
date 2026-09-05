@@ -4,15 +4,17 @@ All notable changes to the "dotnet-cli-plus" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [Unreleased]
+## [1.1.0]
 
 ### Added
 
+- **Solution Explorer tree view.** New ".NET Solution Explorer" view in the Explorer sidebar: solutions (`.sln` and `.slnx`) → solution folders (nesting parsed from the `NestedProjects` section and slnx `Folder` elements) → projects → **Project References** and **Package References** (name + version). Projects carry type-aware icons (test `beaker`, web `globe`, console `terminal`, library `file-code`) and show their target frameworks; project references pointing at missing files are flagged as broken. Right-click and inline actions run directly on the selected node — Run / Debug / Watch (runnable projects only), Build / Clean / Test (test projects) / Format, Manage Packages, Add Project Reference, User Secrets, Publish / Pack, plus solution-level Restore, Build and Manage Solution — bypassing the picker dialogs. Clicking a node opens the `.sln`/`.csproj` file. The tree refreshes automatically (debounced file watcher) whenever solution/project files change on disk — including edits made by the extension itself (`dotnet add/remove reference`, `dotnet sln add/remove`…). Projects not in any solution are grouped under "Discovered projects (not in a solution)"; multi-solution and multi-root workspaces render one tree per solution.
 - **Test Explorer integration.** Populates the VS Code Testing view with tests discovered via `dotnet test --list-tests` (per TFM for multi-targeted projects), grouped as project → namespace → class → test. Three run profiles: **Run** (chunked `--filter` batches with TRX results parsed into per-test pass/fail/skip states, failure messages and stack traces with clickable source locations), **Debug** (launches `dotnet test` under the `coreclr` debugger; breakpoints in test and product code hit directly) and **Coverage** (`--collect "XPlat Code Coverage"` in the same run — cobertura files are parsed into native line/branch coverage gutters and the built-in Coverage view). Live output streams to the "DotNet CLI Plus: test" channel and the Test Results panel. Test items link back to their source via a heuristic `[Fact]`/`[Test]`/`[TestMethod]` attribute scan; `.NET: Refresh Tests` forces re-discovery, and saving test sources refreshes automatically (debounced). Respects `test.noBuild` and `build.configuration`.
 - New settings: `testExplorer.enabled` (default `true`), `testExplorer.locateInSource` (default `true`).
 
 ### Notes
 
+- Actions invoked from the Solution Explorer reuse the same terminals and flows as the palette commands; no picker is shown when a node is selected.
 - Test discovery triggers an incremental build on first use (`--list-tests` builds the project).
 - Microsoft.Testing.Platform projects (xUnit v3 native mode, without `Microsoft.NET.Test.Sdk`) are detected and reported with an explanatory item; support is planned.
 - Theory cases appear as individual tests when the framework lists them per-case (xUnit: `Method(value: 1)`); run filters target the base method so selecting one case runs (and reports) all cases of the theory.
@@ -24,7 +26,7 @@ Initial release. A free, sign-in-free companion to the base C# extension (`ms-do
 
 ### Added
 
-- **Solution & project awareness.** Discovers `.sln` and `.slnx` files (falling back to standalone `*.csproj` when no solution exists), parses projects directly from the solution and project files, and offers smart pickers with *Current project* / *Last used* / *Solution* context rows that remember per-command history.
+- **Solution & project awareness.** Discovers `.sln` and `.slnx` files (falling back to standalone `*.csproj` when no solution exists), parses projects directly from the solution and project files, and offers smart pickers with _Current project_ / _Last used_ / _Solution_ context rows that remember per-command history.
 - **Build commands.** `.NET: Build` (`Ctrl+Shift+D B`), `.NET: Rebuild`, `.NET: Clean` and `.NET: Restore` (`Ctrl+Shift+D S`) against the whole solution or a single project, with configurable `-c Debug/Release` defaults and terminal reuse, exit-code notifications and Retry buttons.
 - **Run & watch.** `.NET: Run Project` (`Ctrl+Shift+D R`) and `.NET: Watch Project` (`Ctrl+Shift+D W`) with run/build/test hot-reload mode selection and restart prompts for already-running terminals.
 - **Debug Project** (`Ctrl+Shift+D D`). Builds the project, computes the output DLL path from the csproj (TargetFramework, AssemblyName), generates or surgically updates a `coreclr` entry in `.vscode/launch.json` (comment-preserving JSONC edits), applies launch-profile environment variables for web apps, and starts the debug session.

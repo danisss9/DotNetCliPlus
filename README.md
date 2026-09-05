@@ -41,6 +41,7 @@ Every command is also available in the Command Palette under the **DotNet CLI Pl
 ## Features
 
 - **Solution & project aware** — discovers `.sln`/`.slnx` files (falls back to standalone `.csproj`), parses projects directly, and offers smart pickers with *Current project* / *Last used* context rows
+- **Solution Explorer** — tree view in the Explorer sidebar (solutions → solution folders → projects → project/package references) with type-aware icons, broken-reference flags and context-menu actions that run directly on the selected node (Run / Debug / Watch, Build / Clean / Test / Format, Manage Packages, Add/Remove Reference, User Secrets, Publish); refreshes automatically when solution or project files change
 - **Test Explorer** — Testing view populated from `dotnet test --list-tests` (project → namespace → class → test), with Run, Debug and Coverage profiles; TRX results, failure messages/stack traces, per-line coverage gutters and the built-in Coverage view
 - **Terminal lifecycle management** — tracked, reused terminals; restart prompts for long-running commands; exit-code toasts with Retry
 - **NuGet management** — package search with version picker, outdated-package webview with per-project batch updates, add/remove/list
@@ -71,7 +72,6 @@ Every command is also available in the Command Palette under the **DotNet CLI Pl
 
 ## Roadmap
 
-- Solution Explorer tree view (solution → projects → references)
 - Microsoft.Testing.Platform (xUnit v3 native mode) support in the Test Explorer
 - Coverage thresholds and diffs
 
