@@ -9,8 +9,9 @@ export function relativeFile(root: string, target: string): string {
   return path.relative(root, target).replace(/\\/g, '/') || '.';
 }
 export async function safeRealpath(root: string, file: string): Promise<string> {
-  const real = await fs.realpath(file);
-  if (!contained(root, real)) { throw new Error(`Excluded link outside workspace: ${relativeFile(root, file)}`); }
+  // Callers may pass roots recorded before symlink resolution (e.g. report locations), so canonicalize both sides.
+  const [realRoot, real] = await Promise.all([fs.realpath(root), fs.realpath(file)]);
+  if (!contained(realRoot, real)) { throw new Error(`Excluded link outside workspace: ${relativeFile(realRoot, file)}`); }
   return real;
 }
 export async function readBounded(file: string, maximum: number): Promise<Buffer> {
