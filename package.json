@@ -1,10 +1,10 @@
 {
   "name": "dotnet-cli-plus",
   "displayName": "DotNet CLI Plus",
-  "description": "dotnet CLI commands, project/solution management, NuGet tools and templates for VS Code — a free companion to the base C# extension",
+  "description": "dotnet CLI commands, project/solution management, NuGet tools and templates for VS Code \u2014 a free companion to the base C# extension",
   "repository": "https://github.com/danisss9/DotNetCliPlus",
   "publisher": "danisss9",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.107.0"
@@ -71,7 +71,7 @@
       },
       {
         "command": "dotnet-cli-plus.newProject",
-        "title": ".NET: New Project…",
+        "title": ".NET: New Project\u2026",
         "category": "DotNet CLI Plus"
       },
       {
@@ -231,6 +231,16 @@
         "title": ".NET: Refresh Solution Explorer",
         "category": "DotNet CLI Plus",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "dotnet-cli-plus.showDependencyGraph",
+        "title": "NuGet: Dependency Graph",
+        "category": "DotNet CLI Plus"
+      },
+      {
+        "command": "dotnet-cli-plus.reviewPackageSecurity",
+        "title": "NuGet: Security Scan",
+        "category": "DotNet CLI Plus"
       }
     ],
     "views": {
@@ -244,89 +254,154 @@
     "viewsWelcome": [
       {
         "view": "dotnet-cli-plus.solutionExplorer",
-        "contents": "No .NET solutions or projects found in this workspace.\n[Create a New Project…](command:dotnet-cli-plus.newProject)\n[Create a New Solution](command:dotnet-cli-plus.new.sln)"
+        "contents": "No .NET solutions or projects found in this workspace.\n[Create a New Project\u2026](command:dotnet-cli-plus.newProject)\n[Create a New Solution](command:dotnet-cli-plus.new.sln)"
       }
     ],
     "keybindings": [
       {
         "command": "dotnet-cli-plus.runProject",
-        "key": "ctrl+shift+d r"
+        "key": "ctrl+shift+d r",
+        "mac": "cmd+shift+d r"
       },
       {
         "command": "dotnet-cli-plus.debugProject",
-        "key": "ctrl+shift+d d"
+        "key": "ctrl+shift+d d",
+        "mac": "cmd+shift+d d"
       },
       {
         "command": "dotnet-cli-plus.watchProject",
-        "key": "ctrl+shift+d w"
+        "key": "ctrl+shift+d w",
+        "mac": "cmd+shift+d w"
       },
       {
         "command": "dotnet-cli-plus.buildTarget",
-        "key": "ctrl+shift+d b"
+        "key": "ctrl+shift+d b",
+        "mac": "cmd+shift+d b"
+      },
+      {
+        "command": "dotnet-cli-plus.rebuildTarget",
+        "key": "ctrl+shift+d h",
+        "mac": "cmd+shift+d h"
+      },
+      {
+        "command": "dotnet-cli-plus.cleanTarget",
+        "key": "ctrl+shift+d x",
+        "mac": "cmd+shift+d x"
       },
       {
         "command": "dotnet-cli-plus.testTarget",
-        "key": "ctrl+shift+d t"
+        "key": "ctrl+shift+d t",
+        "mac": "cmd+shift+d t"
       },
       {
         "command": "dotnet-cli-plus.formatProject",
-        "key": "ctrl+shift+d f"
+        "key": "ctrl+shift+d f",
+        "mac": "cmd+shift+d f"
       },
       {
         "command": "dotnet-cli-plus.restoreSolution",
-        "key": "ctrl+shift+d s"
+        "key": "ctrl+shift+d s",
+        "mac": "cmd+shift+d s"
       },
       {
         "command": "dotnet-cli-plus.newProject",
-        "key": "ctrl+shift+d n"
+        "key": "ctrl+shift+d n",
+        "mac": "cmd+shift+d n"
       },
       {
         "command": "dotnet-cli-plus.manageNuGetPackages",
-        "key": "ctrl+shift+d p"
+        "key": "ctrl+shift+d p",
+        "mac": "cmd+shift+d p"
       },
       {
         "command": "dotnet-cli-plus.updatePackages",
-        "key": "ctrl+shift+d u"
+        "key": "ctrl+shift+d u",
+        "mac": "cmd+shift+d u"
       },
       {
         "command": "dotnet-cli-plus.manageSolution",
-        "key": "ctrl+shift+d m"
+        "key": "ctrl+shift+d m",
+        "mac": "cmd+shift+d m"
       },
       {
         "command": "dotnet-cli-plus.checkBuildErrors",
-        "key": "ctrl+shift+d e"
+        "key": "ctrl+shift+d e",
+        "mac": "cmd+shift+d e"
       },
       {
         "command": "dotnet-cli-plus.runLaunchProfile",
-        "key": "ctrl+shift+d l"
+        "key": "ctrl+shift+d l",
+        "mac": "cmd+shift+d l"
       },
       {
         "command": "dotnet-cli-plus.manageUserSecrets",
-        "key": "ctrl+shift+d g"
+        "key": "ctrl+shift+d g",
+        "mac": "cmd+shift+d g"
       },
       {
         "command": "dotnet-cli-plus.manageSdks",
-        "key": "ctrl+shift+d k"
+        "key": "ctrl+shift+d k",
+        "mac": "cmd+shift+d k"
       },
       {
         "command": "dotnet-cli-plus.setupNuGetAuth",
-        "key": "ctrl+shift+d a"
+        "key": "ctrl+shift+d a",
+        "mac": "cmd+shift+d a"
       },
       {
         "command": "dotnet-cli-plus.manageConfigs",
-        "key": "ctrl+shift+d j"
+        "key": "ctrl+shift+d j",
+        "mac": "cmd+shift+d j"
       },
       {
         "command": "dotnet-cli-plus.publishProject",
-        "key": "ctrl+shift+d o"
+        "key": "ctrl+shift+d o",
+        "mac": "cmd+shift+d o"
       },
       {
         "command": "dotnet-cli-plus.clearTerminals",
-        "key": "ctrl+shift+d c"
+        "key": "ctrl+shift+d c",
+        "mac": "cmd+shift+d c"
       },
       {
         "command": "dotnet-cli-plus.switchFile",
-        "key": "ctrl+shift+d tab"
+        "key": "ctrl+shift+d tab",
+        "mac": "cmd+shift+d tab"
+      },
+      {
+        "command": "dotnet-cli-plus.addProjectReference",
+        "key": "ctrl+shift+d i",
+        "mac": "cmd+shift+d i"
+      },
+      {
+        "command": "dotnet-cli-plus.removeProjectReference",
+        "key": "ctrl+shift+d y",
+        "mac": "cmd+shift+d y"
+      },
+      {
+        "command": "dotnet-cli-plus.listProjectReferences",
+        "key": "ctrl+shift+d q",
+        "mac": "cmd+shift+d q"
+      },
+      {
+        "command": "dotnet-cli-plus.showDependencyGraph",
+        "key": "ctrl+shift+d z",
+        "mac": "cmd+shift+d z"
+      },
+      {
+        "command": "dotnet-cli-plus.reviewPackageSecurity",
+        "key": "ctrl+shift+d v",
+        "mac": "cmd+shift+d v"
+      },
+      {
+        "command": "dotnet-cli-plus.refreshTests",
+        "key": "ctrl+shift+d 1",
+        "mac": "cmd+shift+d 1"
+      },
+      {
+        "command": "dotnet-cli-plus.clearCoverageBaseline",
+        "key": "ctrl+shift+d 0",
+        "mac": "cmd+shift+d 0"
       }
     ],
     "submenus": [
@@ -414,111 +489,121 @@
         }
       ],
       "view/title": [
-      {
-        "command": "dotnet-cli-plus.solutionExplorer.refresh",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer'",
-        "group": "navigation@1"
-      },
-      {
-        "command": "dotnet-cli-plus.manageSolution",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer'"
-      },
-      {
-        "command": "dotnet-cli-plus.newProject",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer'"
-      }
-    ],
-    "view/item/context": [
-      {
-        "command": "dotnet-cli-plus.restoreSolution",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
-        "group": "1_solution@1"
-      },
-      {
-        "command": "dotnet-cli-plus.buildTarget",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
-        "group": "1_solution@2"
-      },
-      {
-        "command": "dotnet-cli-plus.manageSolution",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
-        "group": "1_solution@3"
-      },
-      {
-        "command": "dotnet-cli-plus.runProject",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
-        "group": "2_run@1"
-      },
-      {
-        "command": "dotnet-cli-plus.debugProject",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
-        "group": "2_run@2"
-      },
-      {
-        "command": "dotnet-cli-plus.watchProject",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
-        "group": "2_run@3"
-      },
-      {
-        "command": "dotnet-cli-plus.buildTarget",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
-        "group": "3_build@1"
-      },
-      {
-        "command": "dotnet-cli-plus.cleanTarget",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
-        "group": "3_build@2"
-      },
-      {
-        "command": "dotnet-cli-plus.testTarget",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\btest\\b/",
-        "group": "3_build@3"
-      },
-      {
-        "command": "dotnet-cli-plus.formatProject",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
-        "group": "3_build@4"
-      },
-      {
-        "command": "dotnet-cli-plus.manageNuGetPackages",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
-        "group": "4_manage@1"
-      },
-      {
-        "command": "dotnet-cli-plus.addProjectReference",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
-        "group": "4_manage@2"
-      },
-      {
-        "command": "dotnet-cli-plus.manageUserSecrets",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
-        "group": "4_manage@3"
-      },
-      {
-        "command": "dotnet-cli-plus.publishProject",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
-        "group": "4_manage@4"
-      },
-      {
-        "command": "dotnet-cli-plus.removeProjectReference",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetProjectRef'",
-        "group": "5_ref@1"
-      },
-      {
-        "command": "dotnet-cli-plus.runProject",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
-        "group": "inline@1"
-      },
-      {
-        "command": "dotnet-cli-plus.testTarget",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\btest\\b/",
-        "group": "inline@2"
-      },
-      {
-        "command": "dotnet-cli-plus.removeProjectReference",
-        "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetProjectRef'",
-        "group": "inline@3"
-      }
+        {
+          "command": "dotnet-cli-plus.solutionExplorer.refresh",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "dotnet-cli-plus.manageSolution",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer'"
+        },
+        {
+          "command": "dotnet-cli-plus.newProject",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer'"
+        },
+        {
+          "command": "dotnet-cli-plus.showDependencyGraph",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer'",
+          "group": "navigation"
+        },
+        {
+          "command": "dotnet-cli-plus.reviewPackageSecurity",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer'",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dotnet-cli-plus.restoreSolution",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
+          "group": "1_solution@1"
+        },
+        {
+          "command": "dotnet-cli-plus.buildTarget",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
+          "group": "1_solution@2"
+        },
+        {
+          "command": "dotnet-cli-plus.manageSolution",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetSolution'",
+          "group": "1_solution@3"
+        },
+        {
+          "command": "dotnet-cli-plus.runProject",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
+          "group": "2_run@1"
+        },
+        {
+          "command": "dotnet-cli-plus.debugProject",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
+          "group": "2_run@2"
+        },
+        {
+          "command": "dotnet-cli-plus.watchProject",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+          "group": "2_run@3"
+        },
+        {
+          "command": "dotnet-cli-plus.buildTarget",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+          "group": "3_build@1"
+        },
+        {
+          "command": "dotnet-cli-plus.cleanTarget",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+          "group": "3_build@2"
+        },
+        {
+          "command": "dotnet-cli-plus.testTarget",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\btest\\b/",
+          "group": "3_build@3"
+        },
+        {
+          "command": "dotnet-cli-plus.formatProject",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+          "group": "3_build@4"
+        },
+        {
+          "command": "dotnet-cli-plus.manageNuGetPackages",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+          "group": "4_manage@1"
+        },
+        {
+          "command": "dotnet-cli-plus.addProjectReference",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+          "group": "4_manage@2"
+        },
+        {
+          "command": "dotnet-cli-plus.manageUserSecrets",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+          "group": "4_manage@3"
+        },
+        {
+          "command": "dotnet-cli-plus.publishProject",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\bdotnetProject\\b/",
+          "group": "4_manage@4"
+        },
+        {
+          "command": "dotnet-cli-plus.removeProjectReference",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetProjectRef'",
+          "group": "5_ref@1"
+        },
+        {
+          "command": "dotnet-cli-plus.runProject",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\brunnable\\b/",
+          "group": "inline@1"
+        },
+        {
+          "command": "dotnet-cli-plus.testTarget",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem =~ /\\btest\\b/",
+          "group": "inline@2"
+        },
+        {
+          "command": "dotnet-cli-plus.removeProjectReference",
+          "when": "view == 'dotnet-cli-plus.solutionExplorer' && viewItem == 'dotnetProjectRef'",
+          "group": "inline@3"
+        }
       ]
     },
     "configuration": {
@@ -653,6 +738,16 @@
           "type": "boolean",
           "default": true,
           "description": "Show 'Auto Fix' buttons in the Build Errors webview. Requires the selected AI assistant to be installed."
+        },
+        "dotnetCliPlus.securityReview.nugetAudit.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include live NuGet vulnerability advisories for direct and transitive packages in security scans (requires .NET SDK 7.0.200+)."
+        },
+        "dotnetCliPlus.securityReview.afterRestore.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Review NuGet packages after restore and package changes run by this extension. Terminal commands require VS Code shell integration to report completion."
         }
       }
     }
@@ -675,7 +770,11 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test:dependencies": "npm run compile-tests && node --test tests/dependencies.cjs",
+    "test:webviews": "npm run compile-tests && npm run package && playwright test",
+    "test:security-engine": "npm run compile-tests && node tests/engine-smoke.cjs",
+    "test:dotnet-integration": "npm run compile-tests && node tests/dotnet-smoke.cjs"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -686,10 +785,12 @@
     "esbuild": "^0.27.1",
     "eslint": "^9.39.1",
     "npm-run-all": "^4.1.5",
-    "typescript-eslint": "^8.48.1"
+    "typescript-eslint": "^8.48.1",
+    "@playwright/test": "^1.63.0"
   },
   "dependencies": {
     "fast-xml-parser": "^4.5.7",
-    "jsonc-parser": "^3.3.1"
+    "jsonc-parser": "^3.3.1",
+    "cytoscape": "^3.34.3"
   }
 }

@@ -4,6 +4,18 @@ All notable changes to the "dotnet-cli-plus" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.2.0] - 2026-09-11
+
+### Added
+
+- NuGet dependency graph adapted from NodeCliPlus, with project/framework/runtime branches, transitive navigation, search, expand/reset, unresolved dependencies and a security-scan shortcut.
+- NuGet security reports with live direct/transitive advisories, YARA-X checks for package build scripts, evidence navigation, cancellation and standalone HTML export. Automatic scans follow extension-managed restore/package operations; coverage explicitly reports incomplete checks.
+- Keybindings for the remaining palette commands, completing the `Ctrl+Shift+D` chord map (every letter of the alphabet plus `Tab`, `0` and `1`): `.NET: Rebuild` (`Ctrl+Shift+D H`), `.NET: Clean` (`Ctrl+Shift+D X`), `.NET: Add Project Reference` (`Ctrl+Shift+D I`), `.NET: Remove Project Reference` (`Ctrl+Shift+D Y`), `.NET: List Project References` (`Ctrl+Shift+D Q`), `NuGet: Dependency Graph` (`Ctrl+Shift+D Z`), `NuGet: Security Scan` (`Ctrl+Shift+D V`), `.NET: Refresh Tests` (`Ctrl+Shift+D 1`) and `.NET: Clear Coverage Baseline` (`Ctrl+Shift+D 0`). The `.NET New` submenu templates and the Solution Explorer refresh stay unbound on purpose (submenu/toolbar-only entries).
+
+### Fixed
+
+- Keyboard shortcuts now use `Cmd+Shift+D` on macOS, matching the documented bindings.
+
 ## [1.1.0]
 
 ### Added

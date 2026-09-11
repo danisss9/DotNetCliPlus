@@ -23,6 +23,13 @@ const esbuildProblemMatcherPlugin = {
 };
 
 async function main() {
+  const graphCtx = await esbuild.context({
+    entryPoints: ['src/nuget-graph-webview.ts', 'src/nuget-graph-webview.css', 'src/security-webview.ts', 'src/security-webview.css'],
+    bundle: true, format: 'iife', platform: 'browser', target: 'es2022',
+    minify: production, sourcemap: !production, outdir: 'dist',
+  });
+  require('fs').mkdirSync('dist', { recursive: true });
+  require('fs').copyFileSync('node_modules/cytoscape/LICENSE', 'dist/cytoscape-LICENSE.txt');
   const ctx = await esbuild.context({
     entryPoints: ['src/extension.ts'],
     bundle: true,
@@ -40,8 +47,11 @@ async function main() {
     plugins: [esbuildProblemMatcherPlugin],
   });
   if (watch) {
+    await graphCtx.watch();
     await ctx.watch();
   } else {
+    await graphCtx.rebuild();
+    await graphCtx.dispose();
     await ctx.rebuild();
     await ctx.dispose();
   }

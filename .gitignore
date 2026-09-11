@@ -4,3 +4,7 @@ node_modules
 .vscode-test/
 .zcode/
 *.vsix
+
+.webview-test-results/
+.dependency-test-results/
+playwright-report/

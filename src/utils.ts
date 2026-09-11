@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { beginSecurityInstall, endSecurityInstall } from './security-command';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { CsprojInfo, ProjectEntry, BuildTarget } from './types';
@@ -570,13 +571,21 @@ export async function spawnDotnet(
   if (options?.reveal) {
     channel.show(true);
   }
-  return spawnManaged('dotnet', args, {
-    cwd,
-    shell: false,
-    timeoutMs: options?.timeoutMs,
-    onStdout: (chunk) => channel.append(chunk),
-    onStderr: (chunk) => channel.append(chunk),
-  });
+  const mutation = args[0] === 'restore' || (['add', 'remove'].includes(args[0]) && args.includes('package'));
+  const folder = mutation ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(cwd)) : undefined;
+  const securityRoot = folder ? await beginSecurityInstall(folder.uri.fsPath) : undefined;
+  let outcome: 'success' | 'failed' = 'failed';
+  try {
+    const result = await spawnManaged('dotnet', args, {
+      cwd,
+      shell: false,
+      timeoutMs: options?.timeoutMs,
+      onStdout: (chunk) => channel.append(chunk),
+      onStderr: (chunk) => channel.append(chunk),
+    });
+    outcome = result.exitCode === 0 ? 'success' : 'failed';
+    return result;
+  } finally { endSecurityInstall(securityRoot, outcome); }
 }
 
 export function buildDotnetTerminalCommand(args: string[]): string {

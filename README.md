@@ -19,6 +19,8 @@ All commands are bound to `Ctrl+Shift+D` chords (macOS: `Cmd+Shift+D`).
 | `Ctrl+Shift+D D`   | .NET: Debug Project (generates/updates launch.json, builds, launches coreclr)                     |
 | `Ctrl+Shift+D W`   | .NET: Watch Project (hot reload via dotnet watch)                                                 |
 | `Ctrl+Shift+D B`   | .NET: Build                                                                                       |
+| `Ctrl+Shift+D H`   | .NET: Rebuild (clean + build in one pass)                                                         |
+| `Ctrl+Shift+D X`   | .NET: Clean (deletes bin/obj build artifacts)                                                     |
 | `Ctrl+Shift+D T`   | .NET: Test (with vstest filter support)                                                           |
 | `Ctrl+Shift+D F`   | .NET: Format (dotnet format — check or apply)                                                     |
 | `Ctrl+Shift+D S`   | .NET: Restore                                                                                     |
@@ -35,6 +37,13 @@ All commands are bound to `Ctrl+Shift+D` chords (macOS: `Cmd+Shift+D`).
 | `Ctrl+Shift+D O`   | .NET: Publish / Pack                                                                              |
 | `Ctrl+Shift+D Tab` | .NET: Switch File (code-behind ↔ markup, source ↔ tests)                                          |
 | `Ctrl+Shift+D C`   | Close Terminals                                                                                   |
+| `Ctrl+Shift+D I`   | .NET: Add Project Reference (with circular-reference detection)                                   |
+| `Ctrl+Shift+D Y`   | .NET: Remove Project Reference                                                                    |
+| `Ctrl+Shift+D Q`   | .NET: List Project References                                                                     |
+| `Ctrl+Shift+D Z`   | NuGet: Dependency Graph (workspace package tree webview)                                          |
+| `Ctrl+Shift+D V`   | NuGet: Security Scan (package security review)                                                    |
+| `Ctrl+Shift+D 1`   | .NET: Refresh Tests (re-run test discovery)                                                       |
+| `Ctrl+Shift+D 0`   | .NET: Clear Coverage Baseline (resets the coverage diff)                                          |
 
 Every command is also available in the Command Palette under the **DotNet CLI Plus** category, via the status bar item, and for folders through the **.NET New** explorer context submenu (console, classlib, xunit/NUnit/MSTest, Web API, Blazor, worker, gRPC, config files…).
 
@@ -72,6 +81,23 @@ Every command is also available in the Command Palette under the **DotNet CLI Pl
 | `ai.provider`                 | `copilot` | AI assistant for auto-fix (copilot/claude)                             |
 | `ai.autoFixEnabled`           | `true`    | Show Auto Fix buttons in webviews                                      |
 
+## NuGet dependency graph and security scan
+
+Open **NuGet: Dependency Graph** from the Command Palette or the Solution Explorer toolbar. Select a workspace in multi-root windows. The graph includes C#, F# and VB projects, project references, direct and transitive NuGet packages, and separate target-framework/runtime branches. Search reveals the path to nested packages; expand/collapse, Expand all, Fit, Reset, pan and zoom work without animated layout settling. The graph also links directly to **NuGet: Security Scan**.
+
+The graph reads `project.assets.json` from the last restore. This includes resolved central package versions. Run **.NET: Restore** after dependency changes, then Refresh. Without restore data it shows unevaluated project declarations and an explicit notice. Conventional `obj/project.assets.json` and custom asset files discoverable within the workspace are supported; excluded directories and paths outside the workspace are not searched. Legacy `packages.config` projects need migration to PackageReference for a resolved graph and scan.
+
+**NuGet: Security Scan** reviews the selected workspace in a trusted window:
+
+- Live NuGet advisories for direct and transitive packages, using [`dotnet list package --vulnerable --include-transitive --format json`](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-package-list). Requires SDK 7.0.200+; the scanner disables implicit restore on SDKs that support it. It respects configured NuGet audit/package sources.
+- Static YARA-X checks of restored package `.props`, `.targets`, PowerShell, shell, batch, JavaScript and C# script files, including inline MSBuild tasks, encoded execution, download-and-execute commands and other suspicious indicators.
+- Severity/category/search filters, dependency paths, evidence links into the NuGet cache, cancellation, rescan and a standalone HTML export.
+- Automatic reviews after restores and package changes performed through this extension. Terminal operations require VS Code shell integration to report completion. New package operations invalidate in-progress results.
+
+The first script scan downloads a pinned, SHA-256-verified YARA-X engine into extension storage (Windows x64, Linux x64/ARM64, macOS x64/ARM64). Subsequent scans reuse it. Failed downloads, unavailable feeds, missing package files, scan limits and cancellation appear in coverage; they are not reported as a clean scan. Package scripts are read as data, not run by the script scanner. Compiled assemblies/tasks and runtime downloads are outside its scope. Pattern matches require investigation and are not proof of malware. No curated NuGet malware catalog is bundled.
+
+Settings: `dotnetCliPlus.securityReview.afterRestore.enabled` controls automatic reviews, and `dotnetCliPlus.securityReview.nugetAudit.enabled` controls live advisories. Both default to `true`; manual scans remain available when automatic reviews are disabled.
+
 ## Development
 
 ```bash
@@ -79,6 +105,10 @@ npm install
 npm run compile     # type-check + lint + bundle
 npm run watch       # watch mode (tsc + esbuild)
 npm test            # unit tests (runs in VS Code via @vscode/test-electron)
+npm run test:dependencies       # graph, inventory, audit and job lifecycle tests
+npm run test:webviews           # Playwright graph/report tests; needs Chromium
+npm run test:security-engine    # pinned YARA-X smoke test (may download engine)
+npm run test:dotnet-integration # real restore and live advisory test; needs .NET 10/network
 ```
 
 Releases are published from `dnp_*` tags via the Release workflow.

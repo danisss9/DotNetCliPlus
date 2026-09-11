@@ -13,3 +13,9 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+
+tests/**
+.webview-test-results/**
+.dependency-test-results/**
+playwright-report/**
+playwright.config.cjs

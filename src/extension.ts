@@ -1,3 +1,6 @@
+import { showNugetDependencyGraph } from './nuget-graph-command';
+import { reviewPackageSecurityCommand, beginSecurityInstall, endSecurityInstall } from './security-command';
+import { killAllManagedChildren as killSecurityChildren } from './managed-process';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -87,6 +90,7 @@ function folderLooksLikeDotnet(root: string): boolean {
 export function activate(context: vscode.ExtensionContext) {
   setExtensionContext(context);
   activateTestExplorer(context);
+  const securityExecutions = new Map<vscode.TerminalShellExecution, Promise<string | undefined>>();
 
   const persisted = loadPersistedTerminalEntries();
   for (const name of Object.keys(persisted)) {
@@ -105,9 +109,19 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.onDidStartTerminalShellExecution((event) => {
       if (extensionTerminals.has(event.terminal)) {
         setTrackedTerminalRunning(event.terminal);
+        const command = event.execution.commandLine.value;
+        if (/\bdotnet(?:\.exe)?["']?\s+(?:restore\b|(?:add|remove)\b[^\r\n]*\bpackage\b)/i.test(command)) {
+          const folder = event.execution.cwd && vscode.workspace.getWorkspaceFolder(event.execution.cwd);
+          if (folder) { securityExecutions.set(event.execution, beginSecurityInstall(folder.uri.fsPath)); }
+        }
       }
     }),
     vscode.window.onDidEndTerminalShellExecution((event) => {
+      const securityRoot = securityExecutions.get(event.execution);
+      if (securityRoot) {
+        securityExecutions.delete(event.execution);
+        void securityRoot.then(root => endSecurityInstall(root, event.exitCode === undefined ? undefined : event.exitCode === 0 ? 'success' : 'failed'));
+      }
       if (extensionTerminals.has(event.terminal)) {
         setTrackedTerminalFinished(event.terminal, event.exitCode);
       }
@@ -123,6 +137,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dotnet-cli-plus.formatProject', (node?: unknown) => formatProject(asBuildTargetArg(node))),
     vscode.commands.registerCommand('dotnet-cli-plus.newProject', () => runNewProjectWizard()),
     vscode.commands.registerCommand('dotnet-cli-plus.manageNuGetPackages', (node?: unknown) => manageNuGetPackages(asProjectTarget(node))),
+    vscode.commands.registerCommand('dotnet-cli-plus.showDependencyGraph', () => showNugetDependencyGraph()),
+    vscode.commands.registerCommand('dotnet-cli-plus.reviewPackageSecurity', () => reviewPackageSecurityCommand()),
     vscode.commands.registerCommand('dotnet-cli-plus.updatePackages', () => showPackageUpdates()),
     vscode.commands.registerCommand('dotnet-cli-plus.manageSolution', () => manageSolution()),
     vscode.commands.registerCommand('dotnet-cli-plus.checkBuildErrors', () => checkBuildErrors()),
@@ -244,4 +260,5 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   teardownAllRestoreChecks();
   killAllManagedChildren();
+  killSecurityChildren();
 }
