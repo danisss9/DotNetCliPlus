@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import * as fs from 'fs/promises';
+import * as os from 'os';
 import * as path from 'path';
 import {
   buildProgramPath,
@@ -37,7 +39,10 @@ import {
   validateProjectName,
   validateTestFilter,
   countErrors,
+  applyCentralPackageVersions,
+  parsePackageVersions,
 } from '../pure-utils';
+import { invalidateCsprojCache, loadCsproj } from '../utils';
 
 const SLN_SAMPLE = `Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
@@ -118,7 +123,7 @@ const CSPROJ_LEGACY = `<Project ToolsVersion="15.0" xmlns="http://schemas.micros
 
 const LAUNCH_SETTINGS = {
   profiles: {
-    'http': {
+    http: {
       commandName: 'Project',
       dotnetRunMessages: true,
       launchBrowser: false,
@@ -137,8 +142,8 @@ const MSBUILD_OUTPUT = [
   'MSBuild version 17.9.8 for .NET',
   '  Determining projects to restore...',
   '  Restored /src/App/App.csproj (in 1.2 sec).',
-  '  Program.cs(10,5): error CS0103: The name \'x\' does not exist in the current context [C:\\src\\App\\App.csproj]',
-  '  Services\\Foo.cs(3,1): warning CS0219: The variable \'y\' is assigned but never used [C:\\src\\App\\App.csproj]',
+  "  Program.cs(10,5): error CS0103: The name 'x' does not exist in the current context [C:\\src\\App\\App.csproj]",
+  "  Services\\Foo.cs(3,1): warning CS0219: The variable 'y' is assigned but never used [C:\\src\\App\\App.csproj]",
   '  Bar.cs(12): error CS1002: ; expected [C:\\src\\Lib\\Lib.csproj]',
   'error NETSDK1004: Assets file not found. Run a dotnet restore.',
   'Build failed.',
@@ -158,11 +163,35 @@ const RUNTIME_LIST_OUTPUT = [
 
 const NEW_LIST_JSON = {
   templates: [
-    { name: 'Console App', shortName: 'console', type: 'project', languages: ['C#', 'F#'], tags: 'Common/Console' },
-    { name: 'ASP.NET Core Web API', shortName: 'webapi', type: 'project', languages: ['C#', 'F#'], tags: 'Web/Web API' },
-    { name: 'xUnit Test Project', shortName: 'xunit', type: 'project', languages: ['C#', 'F#', 'VB'], tags: 'Test/xUnit' },
+    {
+      name: 'Console App',
+      shortName: 'console',
+      type: 'project',
+      languages: ['C#', 'F#'],
+      tags: 'Common/Console',
+    },
+    {
+      name: 'ASP.NET Core Web API',
+      shortName: 'webapi',
+      type: 'project',
+      languages: ['C#', 'F#'],
+      tags: 'Web/Web API',
+    },
+    {
+      name: 'xUnit Test Project',
+      shortName: 'xunit',
+      type: 'project',
+      languages: ['C#', 'F#', 'VB'],
+      tags: 'Test/xUnit',
+    },
     { name: 'NuGet Config', shortName: 'nugetconfig', type: 'item', languages: [], tags: 'Config' },
-    { name: 'EditorConfig file', shortName: 'editorconfig', type: 'item', languages: [], tags: 'Config' },
+    {
+      name: 'EditorConfig file',
+      shortName: 'editorconfig',
+      type: 'item',
+      languages: [],
+      tags: 'Config',
+    },
   ],
 };
 
@@ -200,8 +229,18 @@ const OUTDATED_JSON = {
         {
           framework: 'net8.0',
           topLevelPackages: [
-            { id: 'Newtonsoft.Json', resolvedVersion: '12.0.1', requestedVersion: '12.0.1', latestVersion: '13.0.3' },
-            { id: 'UpToDate', resolvedVersion: '1.0.0', requestedVersion: '1.0.0', latestVersion: '1.0.0' },
+            {
+              id: 'Newtonsoft.Json',
+              resolvedVersion: '12.0.1',
+              requestedVersion: '12.0.1',
+              latestVersion: '13.0.3',
+            },
+            {
+              id: 'UpToDate',
+              resolvedVersion: '1.0.0',
+              requestedVersion: '1.0.0',
+              latestVersion: '1.0.0',
+            },
             { id: 'NotRestored', requestedVersion: '2.0.0', latestVersion: '3.0.0' },
           ],
         },
@@ -237,7 +276,10 @@ describe('shell helpers', () => {
   });
 
   it('builds terminal commands with quoted args only when needed', () => {
-    assert.strictEqual(buildTerminalCommand(['dotnet', 'build', 'C:\\a b\\c.csproj']), 'dotnet build "C:\\a b\\c.csproj"');
+    assert.strictEqual(
+      buildTerminalCommand(['dotnet', 'build', 'C:\\a b\\c.csproj']),
+      'dotnet build "C:\\a b\\c.csproj"',
+    );
     assert.strictEqual(buildTerminalCommand(['dotnet', '--version']), 'dotnet --version');
   });
 
@@ -355,11 +397,11 @@ describe('buildSolutionHierarchy', () => {
     const src = roots.find((node) => node.label === 'src');
     const tests = roots.find((node) => node.label === 'tests');
     assert.ok(src && tests);
+    assert.deepStrictEqual(src.children.map((node) => node.label).sort(), ['App', 'App.Core']);
     assert.deepStrictEqual(
-      src.children.map((node) => node.label).sort(),
-      ['App', 'App.Core'],
+      tests.children.map((node) => node.label),
+      ['App.Tests'],
     );
-    assert.deepStrictEqual(tests.children.map((node) => node.label), ['App.Tests']);
   });
 
   it('sorts children alphabetically with folders and projects interleaved', () => {
@@ -386,10 +428,11 @@ describe('buildSolutionHierarchy', () => {
 
   it('keeps projects at the root without nesting info', () => {
     const flat = buildSolutionHierarchy(parseSln(SLN_SAMPLE)!, new Map());
-    assert.deepStrictEqual(
-      flat.map((node) => node.label).sort(),
-      ['MyApp', 'MyApp.Core', 'solution-items'],
-    );
+    assert.deepStrictEqual(flat.map((node) => node.label).sort(), [
+      'MyApp',
+      'MyApp.Core',
+      'solution-items',
+    ]);
   });
 });
 
@@ -411,10 +454,7 @@ describe('parseSlnxDetailed', () => {
 
   it('keeps root projects at the root', () => {
     assert.strictEqual(hierarchy.length, 2);
-    assert.deepStrictEqual(
-      hierarchy.map((node) => node.label).sort(),
-      ['Libraries', 'Root'],
-    );
+    assert.deepStrictEqual(hierarchy.map((node) => node.label).sort(), ['Libraries', 'Root']);
     const root = hierarchy.find((node) => node.label === 'Root')!;
     assert.strictEqual(root.project?.relativePath, ['src', 'Root', 'Root.csproj'].join(path.sep));
   });
@@ -424,7 +464,10 @@ describe('parseSlnxDetailed', () => {
       libraries.children.map((node) => node.label),
       ['Lib', 'nested'],
     );
-    assert.strictEqual(libraries.children[0].project?.relativePath, ['src', 'Lib', 'Lib.csproj'].join(path.sep));
+    assert.strictEqual(
+      libraries.children[0].project?.relativePath,
+      ['src', 'Lib', 'Lib.csproj'].join(path.sep),
+    );
     assert.deepStrictEqual(
       libraries.children[1].children.map((node) => node.label),
       ['Deep'],
@@ -487,6 +530,79 @@ describe('parseCsproj', () => {
   });
 });
 
+describe('central package management (Directory.Packages.props)', () => {
+  const centralProps =
+    '<Project><PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup><ItemGroup>' +
+    '<PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />' +
+    '<PackageVersion Update="Serilog"><Version>3.1.1</Version></PackageVersion>' +
+    '</ItemGroup></Project>';
+
+  it('parses Include and Update entries with attribute or child versions', () => {
+    const versions = parsePackageVersions(centralProps);
+    assert.strictEqual(versions.get('Newtonsoft.Json'), '13.0.3');
+    assert.strictEqual(versions.get('Serilog'), '3.1.1');
+  });
+
+  it('returns no versions when central management is disabled', () => {
+    const versions = parsePackageVersions(
+      '<Project><PropertyGroup><ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally></PropertyGroup></Project>',
+    );
+    assert.strictEqual(versions.size, 0);
+  });
+
+  it('fills only versionless references and keeps the info object otherwise', () => {
+    const info = parseCsproj(
+      '<Project Sdk="Microsoft.NET.Sdk"><ItemGroup>' +
+        '<PackageReference Include="Newtonsoft.Json" /><PackageReference Include="Serilog" Version="3.0.0" />' +
+        '</ItemGroup></Project>',
+    )!;
+    const merged = applyCentralPackageVersions(info, new Map([['newtonsoft.json', '13.0.3']]));
+    assert.deepStrictEqual(merged.packageReferences[0], {
+      id: 'Newtonsoft.Json',
+      version: '13.0.3',
+    });
+    assert.strictEqual(merged.packageReferences[1].version, '3.0.0');
+    assert.strictEqual(applyCentralPackageVersions(info, new Map()), info);
+  });
+
+  it('loadCsproj resolves versions from the nearest Directory.Packages.props', async () => {
+    const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'cpm-load-'));
+    try {
+      const nested = path.join(temporary, 'src', 'lib');
+      await fs.mkdir(nested, { recursive: true });
+      await fs.writeFile(path.join(temporary, 'Directory.Packages.props'), centralProps);
+      await fs.writeFile(
+        path.join(nested, 'Directory.Packages.props'),
+        '<Project><ItemGroup><PackageVersion Include="Newtonsoft.Json" Version="12.0.2" /></ItemGroup></Project>',
+      );
+      await fs.writeFile(
+        path.join(nested, 'lib.csproj'),
+        '<Project Sdk="Microsoft.NET.Sdk"><ItemGroup>' +
+          '<PackageReference Include="Newtonsoft.Json" /><PackageReference Include="Serilog" />' +
+          '</ItemGroup></Project>',
+      );
+      invalidateCsprojCache();
+      const csprojPath = path.join(nested, 'lib.csproj');
+      let info = await loadCsproj(csprojPath);
+      assert.deepStrictEqual(info?.packageReferences[0], {
+        id: 'Newtonsoft.Json',
+        version: '12.0.2',
+      });
+      assert.strictEqual(info?.packageReferences[1].version, undefined);
+      await fs.rm(path.join(nested, 'Directory.Packages.props'));
+      info = await loadCsproj(csprojPath);
+      assert.deepStrictEqual(info?.packageReferences[0], {
+        id: 'Newtonsoft.Json',
+        version: '13.0.3',
+      });
+      assert.deepStrictEqual(info?.packageReferences[1], { id: 'Serilog', version: '3.1.1' });
+    } finally {
+      await fs.rm(temporary, { recursive: true, force: true });
+      invalidateCsprojCache();
+    }
+  });
+});
+
 describe('buildProgramPath', () => {
   it('builds the default output path', () => {
     const dir = path.join(path.sep === '\\' ? 'C:\\src' : '/src', 'App');
@@ -527,7 +643,12 @@ describe('parseLaunchSettingsProfiles', () => {
 
   it('falls back to ASPNETCORE_URLS from environment variables', () => {
     const profiles = parseLaunchSettingsProfiles({
-      profiles: { p: { commandName: 'Project', environmentVariables: { ASPNETCORE_URLS: 'http://localhost:9999' } } },
+      profiles: {
+        p: {
+          commandName: 'Project',
+          environmentVariables: { ASPNETCORE_URLS: 'http://localhost:9999' },
+        },
+      },
     });
     assert.strictEqual(profiles[0].applicationUrl, 'http://localhost:9999');
   });
@@ -578,7 +699,10 @@ describe('parseMsbuildIssues', () => {
   });
 
   it('ignores non-issue lines', () => {
-    assert.deepStrictEqual(parseMsbuildIssues('Build succeeded.\n  0 Warning(s)\n  0 Error(s)'), []);
+    assert.deepStrictEqual(
+      parseMsbuildIssues('Build succeeded.\n  0 Warning(s)\n  0 Error(s)'),
+      [],
+    );
   });
 });
 
@@ -624,7 +748,10 @@ describe('dotnet new parsing', () => {
     const nugetconfig = templates.find((t) => t.shortName === 'nugetconfig');
     assert.ok(nugetconfig);
     assert.strictEqual(nugetconfig.tags, 'Config');
-    assert.strictEqual(templates.find((t) => t.shortName === 'Examples'), undefined);
+    assert.strictEqual(
+      templates.find((t) => t.shortName === 'Examples'),
+      undefined,
+    );
   });
 
   it('categorizes known and unknown short names', () => {
@@ -656,7 +783,11 @@ describe('NuGet parsing', () => {
     const project = projects[0];
     assert.strictEqual(project.project, 'App.csproj');
     assert.strictEqual(project.packages.length, 2);
-    assert.deepStrictEqual(project.packages[0], { id: 'Newtonsoft.Json', current: '12.0.1', latest: '13.0.3' });
+    assert.deepStrictEqual(project.packages[0], {
+      id: 'Newtonsoft.Json',
+      current: '12.0.1',
+      latest: '13.0.3',
+    });
     assert.strictEqual(project.packages[1].current, '2.0.0');
   });
 
@@ -747,11 +878,17 @@ describe('validators', () => {
 
 describe('companion file candidates', () => {
   it('maps razor to its code-behind and css', () => {
-    assert.deepStrictEqual(markupCompanionCandidates('Foo.razor'), ['Foo.razor.cs', 'Foo.razor.css']);
+    assert.deepStrictEqual(markupCompanionCandidates('Foo.razor'), [
+      'Foo.razor.cs',
+      'Foo.razor.css',
+    ]);
   });
 
   it('maps razor code-behind back to markup', () => {
-    assert.deepStrictEqual(markupCompanionCandidates('Foo.razor.cs'), ['Foo.razor', 'Foo.razor.css']);
+    assert.deepStrictEqual(markupCompanionCandidates('Foo.razor.cs'), [
+      'Foo.razor',
+      'Foo.razor.css',
+    ]);
   });
 
   it('maps xaml and cshtml', () => {
@@ -766,7 +903,11 @@ describe('companion file candidates', () => {
   });
 
   it('computes test file candidates', () => {
-    assert.deepStrictEqual(testFileCandidates('Foo.cs'), ['FooTests.cs', 'FooTest.cs', 'FooFacts.cs']);
+    assert.deepStrictEqual(testFileCandidates('Foo.cs'), [
+      'FooTests.cs',
+      'FooTest.cs',
+      'FooFacts.cs',
+    ]);
     assert.deepStrictEqual(testFileCandidates('Foo.razor.cs'), []);
     assert.deepStrictEqual(testFileCandidates('App.xaml'), []);
   });

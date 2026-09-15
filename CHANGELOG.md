@@ -6,6 +6,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [1.2.1] - 2026-09-15
 
+### Added
+
+- Central package management (`Directory.Packages.props`) version resolution: List Packages, Remove Package and the Solution Explorer now show the effective version for versionless `<PackageReference>` entries, resolved from the nearest `Directory.Packages.props` walking up from the project directory (NuGet's nearest-wins semantics). Package ids are matched case-insensitively; references with inline versions are left untouched, missing central entries stay unpinned, and `ManagePackageVersionsCentrally=false` is honored. Central files are re-read on change (mtime-validated cache), independently of the csproj cache.
+
 ### Changed
 
 - Automatic security scans after restore and package changes are now disabled by default: `dotnetCliPlus.securityReview.afterRestore.enabled` defaults to `false`, so installs no longer trigger a review unless it is enabled. Manual scans stay available, and stale install results are still cleared.

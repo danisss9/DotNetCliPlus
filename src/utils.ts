@@ -17,11 +17,13 @@ import {
 } from './state';
 import { spawnManaged, type SpawnManagedResult } from './spawn';
 import {
+  applyCentralPackageVersions,
   buildTerminalCommand,
   findBestProjectForPath,
   isRunnableProject,
   normalizePathKey,
   parseCsproj,
+  parsePackageVersions,
   parseSln,
   parseSlnx,
 } from './pure-utils';
@@ -38,12 +40,55 @@ interface CsprojCacheEntry {
 
 const csprojCache = new Map<string, CsprojCacheEntry>();
 
+interface CentralVersionsEntry {
+  versions: Map<string, string>;
+  mtimeMs: number;
+}
+
+const centralVersionsCache = new Map<string, CentralVersionsEntry>();
+
 export function invalidateCsprojCache(filePath?: string): void {
   if (filePath) {
+    if (path.basename(filePath).toLowerCase() === 'directory.packages.props') {
+      centralVersionsCache.delete(normalizePathKey(filePath));
+    }
     csprojCache.delete(normalizePathKey(filePath));
   } else {
     csprojCache.clear();
+    centralVersionsCache.clear();
   }
+}
+
+/** Parse the nearest Directory.Packages.props walking up from a project (NuGet central package management). */
+async function resolveCentralPackageVersions(csprojPath: string): Promise<Map<string, string>> {
+  let dir = path.dirname(path.resolve(csprojPath));
+  for (let depth = 0; depth < 32; depth++) {
+    const propsPath = path.join(dir, 'Directory.Packages.props');
+    let mtimeMs: number;
+    try {
+      mtimeMs = (await fs.promises.stat(propsPath)).mtimeMs;
+    } catch {
+      const parent = path.dirname(dir);
+      if (parent === dir) {
+        return new Map();
+      }
+      dir = parent;
+      continue;
+    }
+    const key = normalizePathKey(propsPath);
+    const cached = centralVersionsCache.get(key);
+    if (cached && cached.mtimeMs === mtimeMs) {
+      return cached.versions;
+    }
+    try {
+      const versions = parsePackageVersions(await fs.promises.readFile(propsPath, 'utf-8'));
+      centralVersionsCache.set(key, { versions, mtimeMs });
+      return versions;
+    } catch {
+      return new Map();
+    }
+  }
+  return new Map();
 }
 
 export async function loadCsproj(csprojPath: string): Promise<CsprojInfo | null> {
@@ -55,22 +100,29 @@ export async function loadCsproj(csprojPath: string): Promise<CsprojInfo | null>
   }
   const key = normalizePathKey(csprojPath);
   const cached = csprojCache.get(key);
+  let info: CsprojInfo | null;
   if (cached && cached.mtimeMs === mtimeMs) {
-    return cached.info;
+    info = cached.info;
+  } else {
+    try {
+      const content = await fs.promises.readFile(csprojPath, 'utf-8');
+      info = parseCsproj(content);
+    } catch {
+      info = null;
+    }
+    if (info) {
+      csprojCache.set(key, { info, mtimeMs });
+    } else if (cached) {
+      csprojCache.delete(key);
+    }
   }
-  let info: CsprojInfo | null = null;
-  try {
-    const content = await fs.promises.readFile(csprojPath, 'utf-8');
-    info = parseCsproj(content);
-  } catch {
-    info = null;
+  if (!info) {
+    return null;
   }
-  if (info) {
-    csprojCache.set(key, { info, mtimeMs });
-  } else if (cached) {
-    csprojCache.delete(key);
-  }
-  return info;
+  // The cache stores the raw project parse; central package versions are merged
+  // per call so Directory.Packages.props changes are picked up independently.
+  const centralVersions = await resolveCentralPackageVersions(csprojPath);
+  return applyCentralPackageVersions(info, centralVersions);
 }
 
 // ── Solution / project discovery ──────────────────────────────────────────────
@@ -99,7 +151,9 @@ export async function findSolutionFiles(root: string): Promise<string[]> {
 
 export async function findProjectFiles(root: string): Promise<string[]> {
   const uris = await vscode.workspace.findFiles(PROJECT_FILE_GLOB, EXCLUDE_GLOB, 500);
-  return uris.map((u) => u.fsPath).filter((p) => normalizePathKey(p).startsWith(normalizePathKey(root)));
+  return uris
+    .map((u) => u.fsPath)
+    .filter((p) => normalizePathKey(p).startsWith(normalizePathKey(root)));
 }
 
 export async function pickWorkspaceRoot(): Promise<string | null> {
@@ -111,7 +165,9 @@ export async function pickWorkspaceRoot(): Promise<string | null> {
   if (folders.length === 1) {
     return folders[0].uri.fsPath;
   }
-  const picked = await vscode.window.showWorkspaceFolderPick({ placeHolder: 'Select workspace folder' });
+  const picked = await vscode.window.showWorkspaceFolderPick({
+    placeHolder: 'Select workspace folder',
+  });
   return picked?.uri.fsPath ?? null;
 }
 
@@ -126,7 +182,9 @@ export async function pickSolutionFile(candidates: string[], root: string): Prom
     (a, b) => a.split(path.sep).length - b.split(path.sep).length || a.localeCompare(b),
   );
   const last = getExtensionContext().globalState.get<string>(`lastSolution.${root}`);
-  const lastInList = last ? sorted.find((c) => normalizePathKey(c) === normalizePathKey(last)) : undefined;
+  const lastInList = last
+    ? sorted.find((c) => normalizePathKey(c) === normalizePathKey(last))
+    : undefined;
   const LAST_LABEL = lastInList ? `$(history)  Last used (${path.basename(lastInList)})` : null;
   const choices: string[] = [
     ...(LAST_LABEL ? [LAST_LABEL] : []),
@@ -168,7 +226,9 @@ export async function resolveDotnetWorkspace(): Promise<DotnetWorkspace | null> 
   if (folders.length === 1) {
     folder = folders[0];
   } else {
-    const picked = await vscode.window.showWorkspaceFolderPick({ placeHolder: 'Select workspace folder' });
+    const picked = await vscode.window.showWorkspaceFolderPick({
+      placeHolder: 'Select workspace folder',
+    });
     if (!picked) {
       return null;
     }
@@ -190,7 +250,10 @@ export async function resolveDotnetWorkspace(): Promise<DotnetWorkspace | null> 
   return { folder, root, slnPath, projects };
 }
 
-export async function discoverProjects(root: string, slnPath: string | null): Promise<ProjectEntry[]> {
+export async function discoverProjects(
+  root: string,
+  slnPath: string | null,
+): Promise<ProjectEntry[]> {
   const entries: ProjectEntry[] = [];
   const seen = new Set<string>();
 
@@ -265,7 +328,7 @@ export function detectActiveProject(projects: ProjectEntry[]): ProjectEntry | nu
     activeFile,
     projects.map((p) => ({ name: p.name, csprojPath: p.csprojPath })),
   );
-  return name ? projects.find((p) => p.name === name) ?? null : null;
+  return name ? (projects.find((p) => p.name === name) ?? null) : null;
 }
 
 export interface PickProjectOptions {
@@ -398,7 +461,8 @@ export async function pickBuildTarget(
     items.push({ label: CURRENT_LABEL, target: { kind: 'project', entry: activeInList! } });
   }
   if (last) {
-    const lastSolution = solutionTarget && normalizePathKey(solutionTarget.path) === normalizePathKey(last);
+    const lastSolution =
+      solutionTarget && normalizePathKey(solutionTarget.path) === normalizePathKey(last);
     const lastEntry = filtered.find((p) => p.name === last);
     if (lastSolution || (lastEntry && lastEntry.name !== activeInList?.name)) {
       items.push({
@@ -424,8 +488,7 @@ export async function pickBuildTarget(
     return null;
   }
   if (options?.commandKey) {
-    const name =
-      picked.target.kind === 'solution' ? picked.target.path : picked.target.entry.name;
+    const name = picked.target.kind === 'solution' ? picked.target.path : picked.target.entry.name;
     if (name !== last) {
       setLastProject(options.commandKey, name);
     }
@@ -571,7 +634,8 @@ export async function spawnDotnet(
   if (options?.reveal) {
     channel.show(true);
   }
-  const mutation = args[0] === 'restore' || (['add', 'remove'].includes(args[0]) && args.includes('package'));
+  const mutation =
+    args[0] === 'restore' || (['add', 'remove'].includes(args[0]) && args.includes('package'));
   const folder = mutation ? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(cwd)) : undefined;
   const securityRoot = folder ? await beginSecurityInstall(folder.uri.fsPath) : undefined;
   let outcome: 'success' | 'failed' = 'failed';
@@ -585,7 +649,9 @@ export async function spawnDotnet(
     });
     outcome = result.exitCode === 0 ? 'success' : 'failed';
     return result;
-  } finally { endSecurityInstall(securityRoot, outcome); }
+  } finally {
+    endSecurityInstall(securityRoot, outcome);
+  }
 }
 
 export function buildDotnetTerminalCommand(args: string[]): string {

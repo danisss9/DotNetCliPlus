@@ -106,7 +106,9 @@ export function parseSlnx(content: string): string[] | null {
 /** Parses the NestedProjects GlobalSection of an .sln file (child guid → parent guid). */
 export function parseSlnNested(content: string): Map<string, string> {
   const nested = new Map<string, string>();
-  const section = /GlobalSection\(NestedProjects\)[^=]*=\s*\w+\s*([\s\S]*?)EndGlobalSection/.exec(content);
+  const section = /GlobalSection\(NestedProjects\)[^=]*=\s*\w+\s*([\s\S]*?)EndGlobalSection/.exec(
+    content,
+  );
   if (!section) {
     return nested;
   }
@@ -128,7 +130,11 @@ export function parseSlnxDetailed(content: string): SlnHierarchyNode[] | null {
   }
   let doc: unknown;
   try {
-    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', isArray: () => true });
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '',
+      isArray: () => true,
+    });
     doc = parser.parse(content);
   } catch {
     return null;
@@ -164,7 +170,13 @@ export function parseSlnxDetailed(content: string): SlnHierarchyNode[] | null {
           const name = path.basename(projectPath, path.extname(projectPath));
           result.push({
             label: name,
-            project: { name, relativePath: projectPath, typeGuid: '', projectGuid: '', isSolutionFolder: false },
+            project: {
+              name,
+              relativePath: projectPath,
+              typeGuid: '',
+              projectGuid: '',
+              isSolutionFolder: false,
+            },
             children: [],
           });
         } else if (tag === 'Folder') {
@@ -201,7 +213,11 @@ export function buildSolutionHierarchy(
   const folderNodes = new Map<string, SlnHierarchyNode>();
   for (const project of projects) {
     if (project.isSolutionFolder) {
-      folderNodes.set(project.projectGuid, { label: project.name, folderGuid: project.projectGuid, children: [] });
+      folderNodes.set(project.projectGuid, {
+        label: project.name,
+        folderGuid: project.projectGuid,
+        children: [],
+      });
     }
   }
   const placed = new Set<string>();
@@ -305,19 +321,20 @@ export function parseCsproj(content: string): CsprojInfo | null {
     }
   }
 
-  const isTestProject = /<IsTestProject>\s*true\s*<\/IsTestProject>/i.test(content) ||
+  const isTestProject =
+    /<IsTestProject>\s*true\s*<\/IsTestProject>/i.test(content) ||
     packageReferences.some((p) => p.id === 'Microsoft.NET.Test.Sdk');
 
   // Microsoft.Testing.Platform "native mode" (e.g. xunit.v3 without the VSTest
   // adapter): Test.Sdk absent but the MTP framework (or a framework built on
   // it) is referenced.
   const hasTestSdk = packageReferences.some((p) => p.id === 'Microsoft.NET.Test.Sdk');
-  const isMtpProject = !hasTestSdk && packageReferences.some(
-    (p) =>
-      p.id === 'Microsoft.Testing.Platform' ||
-      p.id === 'xunit.v3' ||
-      p.id === 'xunit.v3.core',
-  );
+  const isMtpProject =
+    !hasTestSdk &&
+    packageReferences.some(
+      (p) =>
+        p.id === 'Microsoft.Testing.Platform' || p.id === 'xunit.v3' || p.id === 'xunit.v3.core',
+    );
 
   const packableRaw = readTag(content, 'IsPackable');
 
@@ -336,6 +353,57 @@ export function parseCsproj(content: string): CsprojInfo | null {
     packageReferences,
     projectReferences,
   };
+}
+
+// ── central package management (Directory.Packages.props) ─────────────────────
+
+/** Parse <PackageVersion> entries from a Directory.Packages.props document. */
+export function parsePackageVersions(content: string): Map<string, string> {
+  const versions = new Map<string, string>();
+  if (/<ManagePackageVersionsCentrally\b[^>]*>\s*false\s*<\//i.test(content)) {
+    return versions;
+  }
+  const tagRe = /<PackageVersion\b([^>]*?)(?:\/>|>([\s\S]*?)<\/PackageVersion\s*>)/g;
+  let match: RegExpExecArray | null;
+  while ((match = tagRe.exec(content)) !== null) {
+    const attrs = match[1];
+    const body = match[2] ?? '';
+    const nameMatch = /\b(?:Include|Update)="([^"]+)"/.exec(attrs);
+    if (!nameMatch) {
+      continue;
+    }
+    const versionMatch =
+      /\bVersion="([^"]*)"/.exec(attrs) ?? /<Version\b[^>]*>([^<]*)<\/Version\s*>/.exec(body);
+    const version = versionMatch?.[1]?.trim();
+    if (version) {
+      versions.set(nameMatch[1], version);
+    }
+  }
+  return versions;
+}
+
+/** Fill versionless package references from central package versions (case-insensitive id lookup). */
+export function applyCentralPackageVersions(
+  info: CsprojInfo,
+  centralVersions: Map<string, string>,
+): CsprojInfo {
+  if (centralVersions.size === 0) {
+    return info;
+  }
+  const byId = new Map([...centralVersions].map(([id, version]) => [id.toLowerCase(), version]));
+  let changed = false;
+  const packageReferences = info.packageReferences.map((pkg) => {
+    if (pkg.version !== undefined) {
+      return pkg;
+    }
+    const central = byId.get(pkg.id.toLowerCase());
+    if (central === undefined) {
+      return pkg;
+    }
+    changed = true;
+    return { ...pkg, version: central };
+  });
+  return changed ? { ...info, packageReferences } : info;
 }
 
 export function isRunnableProject(csproj: CsprojInfo | null): boolean {
@@ -392,11 +460,7 @@ export function parseLaunchSettingsProfiles(parsed: unknown): LaunchProfile[] {
         profile.environmentVariables as Record<string, unknown>,
       )) {
         environmentVariables[k] = String(v);
-        if (
-          !applicationUrl &&
-          k.toUpperCase() === 'ASPNETCORE_URLS' &&
-          typeof v === 'string'
-        ) {
+        if (!applicationUrl && k.toUpperCase() === 'ASPNETCORE_URLS' && typeof v === 'string') {
           applicationUrl = v;
         }
       }
@@ -413,7 +477,8 @@ export function parseLaunchSettingsProfiles(parsed: unknown): LaunchProfile[] {
 
 // ── MSBuild output parsing ────────────────────────────────────────────────────
 
-const MSBUILD_LINE = /^(.+?)\((\d+)(?:,(\d+))?\):\s*(error|warning)\s+([A-Z][A-Z0-9]*\d+):\s*(.+?)(?:\s+\[([^\[\]]+)\])?$/;
+const MSBUILD_LINE =
+  /^(.+?)\((\d+)(?:,(\d+))?\):\s*(error|warning)\s+([A-Z][A-Z0-9]*\d+):\s*(.+?)(?:\s+\[([^\[\]]+)\])?$/;
 const MSBUILD_BARE = /^(error|warning)\s+([A-Z][A-Z0-9]*\d+):\s*(.+)$/;
 
 export function parseMsbuildIssues(output: string): MsbuildIssue[] {
@@ -565,7 +630,10 @@ export function parseNewListText(text: string): DotnetTemplate[] {
     if (!line.trim() || /^-+\s/.test(line.trim()) || /^Templates\b/i.test(line.trim())) {
       continue;
     }
-    const cols = line.trim().split(/\s{2,}/).filter((c) => c.length > 0);
+    const cols = line
+      .trim()
+      .split(/\s{2,}/)
+      .filter((c) => c.length > 0);
     if (cols.length < 2 || cols.length > 4) {
       continue;
     }
@@ -841,7 +909,10 @@ export function testFileCandidates(fileName: string): string[] {
 }
 
 export function sourceBaseForTestFile(fileName: string): string | null {
-  const match = /^(.*)Tests\.cs$/i.exec(fileName) ?? /^(.*)Test\.cs$/i.exec(fileName) ?? /^(.*)Facts\.cs$/i.exec(fileName);
+  const match =
+    /^(.*)Tests\.cs$/i.exec(fileName) ??
+    /^(.*)Test\.cs$/i.exec(fileName) ??
+    /^(.*)Facts\.cs$/i.exec(fileName);
   return match ? match[1] : null;
 }
 
