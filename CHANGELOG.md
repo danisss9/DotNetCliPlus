@@ -4,6 +4,12 @@ All notable changes to the "dotnet-cli-plus" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.2.1] - 2026-09-15
+
+### Changed
+
+- Automatic security scans after restore and package changes are now disabled by default: `dotnetCliPlus.securityReview.afterRestore.enabled` defaults to `false`, so installs no longer trigger a review unless it is enabled. Manual scans stay available, and stale install results are still cleared.
+
 ## [1.2.0] - 2026-09-11
 
 ### Added

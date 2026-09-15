@@ -74,7 +74,8 @@ export async function beginSecurityInstall(root: string): Promise<string | undef
 }
 export function endSecurityInstall(root: string | undefined, outcome: 'success' | 'failed' | undefined): void {
   if (!root) { return; }
-  const enabled = vscode.workspace.isTrusted && vscode.workspace.getConfiguration('dotnetCliPlus', vscode.Uri.file(root)).get('securityReview.afterRestore.enabled', true);
+  // Automatic reviews are opt-in since 1.2.1; keep the fallback in sync with the manifest default.
+  const enabled = vscode.workspace.isTrusted && vscode.workspace.getConfiguration('dotnetCliPlus', vscode.Uri.file(root)).get('securityReview.afterRestore.enabled', false);
   service().endInstall(root, outcome, enabled);
   if (!service().busy(root)) {
     progress.delete(root);

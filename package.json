@@ -4,7 +4,7 @@
   "description": "dotnet CLI commands, project/solution management, NuGet tools and templates for VS Code \u2014 a free companion to the base C# extension",
   "repository": "https://github.com/danisss9/DotNetCliPlus",
   "publisher": "danisss9",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.107.0"
@@ -746,8 +746,8 @@
         },
         "dotnetCliPlus.securityReview.afterRestore.enabled": {
           "type": "boolean",
-          "default": true,
-          "description": "Review NuGet packages after restore and package changes run by this extension. Terminal commands require VS Code shell integration to report completion."
+          "default": false,
+          "description": "Automatically review NuGet packages after restore and package changes run by this extension. Disabled by default; manual scans remain available. Terminal commands require VS Code shell integration to report completion."
         }
       }
     }

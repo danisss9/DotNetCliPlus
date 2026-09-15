@@ -92,11 +92,11 @@ The graph reads `project.assets.json` from the last restore. This includes resol
 - Live NuGet advisories for direct and transitive packages, using [`dotnet list package --vulnerable --include-transitive --format json`](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-package-list). Requires SDK 7.0.200+; the scanner disables implicit restore on SDKs that support it. It respects configured NuGet audit/package sources.
 - Static YARA-X checks of restored package `.props`, `.targets`, PowerShell, shell, batch, JavaScript and C# script files, including inline MSBuild tasks, encoded execution, download-and-execute commands and other suspicious indicators.
 - Severity/category/search filters, dependency paths, evidence links into the NuGet cache, cancellation, rescan and a standalone HTML export.
-- Automatic reviews after restores and package changes performed through this extension. Terminal operations require VS Code shell integration to report completion. New package operations invalidate in-progress results.
+- Automatic reviews after restores and package changes performed through this extension are opt-in (`dotnetCliPlus.securityReview.afterRestore.enabled`, disabled by default). Terminal operations require VS Code shell integration to report completion. New package operations invalidate in-progress results.
 
 The first script scan downloads a pinned, SHA-256-verified YARA-X engine into extension storage (Windows x64, Linux x64/ARM64, macOS x64/ARM64). Subsequent scans reuse it. Failed downloads, unavailable feeds, missing package files, scan limits and cancellation appear in coverage; they are not reported as a clean scan. Package scripts are read as data, not run by the script scanner. Compiled assemblies/tasks and runtime downloads are outside its scope. Pattern matches require investigation and are not proof of malware. No curated NuGet malware catalog is bundled.
 
-Settings: `dotnetCliPlus.securityReview.afterRestore.enabled` controls automatic reviews, and `dotnetCliPlus.securityReview.nugetAudit.enabled` controls live advisories. Both default to `true`; manual scans remain available when automatic reviews are disabled.
+Settings: `dotnetCliPlus.securityReview.afterRestore.enabled` controls automatic reviews (disabled by default), and `dotnetCliPlus.securityReview.nugetAudit.enabled` controls live advisories (default `true`). Manual scans remain available when automatic reviews are disabled.
 
 ## Development
 
