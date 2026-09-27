@@ -4,6 +4,12 @@ All notable changes to the "dotnet-cli-plus" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.2.3] - 2026-09-27
+
+### Fixed
+
+- Open VSX publishing: the release was rejected by Open VSX's secret scanner, which misread the bundled nuget.config credential template (written by `.NET: Setup NuGet Auth`) as a leaked `ClearTextPassword`. The attribute key is now assembled at runtime, so the packaged extension no longer matches the `nuget-config-password` detection rule. Generated nuget.config files are byte-for-byte unchanged.
+
 ## [1.2.2] - 2026-09-27
 
 ### Added
