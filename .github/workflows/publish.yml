@@ -66,3 +66,6 @@ jobs:
 
       - name: Publish VS Code extension
         run: npx @vscode/vsce publish --packagePath dotnet-cli-plus-${{ steps.version.outputs.VERSION }}.vsix --pat ${{ secrets.MARKETPLACE_PAT }}
+
+      - name: Publish to Open VSX
+        run: npx ovsx publish --packagePath dotnet-cli-plus-${{ steps.version.outputs.VERSION }}.vsix --pat ${{ secrets.OPEN_VSX_PAT }}

@@ -4,6 +4,12 @@ All notable changes to the "dotnet-cli-plus" extension will be documented in thi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.2.2] - 2026-09-27
+
+### Added
+
+- Open VSX publishing: `dnp_*` tag releases now also publish the packaged VSIX to [open-vsx.org](https://open-vsx.org/) via the `ovsx` CLI, alongside the VS Code Marketplace and the GitHub Release. Requires the `OPEN_VSX_PAT` repository secret (created at <https://open-vsx.org/user-settings/tokens>) and the `danisss9` namespace claimed on Open VSX.
+
 ## [1.2.1] - 2026-09-15
 
 ### Added

@@ -2,6 +2,8 @@
 
 dotnet CLI commands, project/solution management, NuGet tools and project templates for VS Code — a **free companion to the base C# extension** (`ms-dotnettools.csharp`) that covers the workflow features normally gated behind the C# Dev Kit: no sign-in, no license, works in VS Code forks.
 
+**Install:** [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=danisss9.dotnet-cli-plus) · [Open VSX](https://open-vsx.org/extension/danisss9/dotnet-cli-plus)
+
 ## Requirements
 
 - .NET SDK (`dotnet`) on PATH — SDK-style projects (.NET Core 3.1+ / .NET 5+)
@@ -70,7 +72,7 @@ Every command is also available in the Command Palette under the **DotNet CLI Pl
 | `test.noBuild`                | `false`   | Pass --no-build to dotnet test                                         |
 | `testExplorer.enabled`        | `true`    | Populate the Testing view with Run / Debug / Coverage profiles         |
 | `testExplorer.locateInSource` | `true`    | Attach source locations to discovered tests (heuristic attribute scan) |
-| `coverage.threshold.line`     | `0`       | Minimum aggregate line coverage % for the Coverage profile (0 = off)  |
+| `coverage.threshold.line`     | `0`       | Minimum aggregate line coverage % for the Coverage profile (0 = off)   |
 | `coverage.threshold.branch`   | `0`       | Minimum aggregate branch coverage % for the Coverage profile (0 = off) |
 | `newProject.outputRoot`       | `""`      | Default output dir for the New Project wizard                          |
 | `newProject.addToSolution`    | `true`    | Offer `dotnet sln add` after creating projects                         |

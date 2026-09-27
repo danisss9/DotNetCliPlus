@@ -1,10 +1,10 @@
 {
   "name": "dotnet-cli-plus",
   "displayName": "DotNet CLI Plus",
-  "description": "dotnet CLI commands, project/solution management, NuGet tools and templates for VS Code \u2014 a free companion to the base C# extension",
+  "description": "dotnet CLI commands, project/solution management, NuGet tools and templates for VS Code — a free companion to the base C# extension",
   "repository": "https://github.com/danisss9/DotNetCliPlus",
   "publisher": "danisss9",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.107.0"
@@ -71,7 +71,7 @@
       },
       {
         "command": "dotnet-cli-plus.newProject",
-        "title": ".NET: New Project\u2026",
+        "title": ".NET: New Project…",
         "category": "DotNet CLI Plus"
       },
       {
@@ -254,7 +254,7 @@
     "viewsWelcome": [
       {
         "view": "dotnet-cli-plus.solutionExplorer",
-        "contents": "No .NET solutions or projects found in this workspace.\n[Create a New Project\u2026](command:dotnet-cli-plus.newProject)\n[Create a New Solution](command:dotnet-cli-plus.new.sln)"
+        "contents": "No .NET solutions or projects found in this workspace.\n[Create a New Project…](command:dotnet-cli-plus.newProject)\n[Create a New Solution](command:dotnet-cli-plus.new.sln)"
       }
     ],
     "keybindings": [
